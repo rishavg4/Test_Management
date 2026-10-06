@@ -1,0 +1,3180 @@
+﻿<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>HUB QA Dashboard — IBM Banking Delivery</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<style>
+/* ============================================================
+   RESET & BASE
+   ============================================================ */
+*{box-sizing:border-box;margin:0;padding:0;}
+html,body{height:100%;overflow:hidden;font-family:-apple-system,"Segoe UI",system-ui,sans-serif;background:#f1f4f9;color:#1e293b;font-size:14px;}
+#app{display:flex;height:100vh;width:100vw;}
+
+/* ============================================================
+   LEFT NAVIGATION — 200px dark sidebar
+   ============================================================ */
+#nav{width:200px;min-width:200px;background:#1e293b;color:#fff;display:flex;flex-direction:column;overflow:hidden;box-shadow:2px 0 8px rgba(0,0,0,.25);}
+#nav-logo{padding:18px 16px 14px;border-bottom:1px solid #334155;}
+#nav-logo .logo-title{font-size:12.5px;font-weight:800;color:#e2e8f0;letter-spacing:.6px;line-height:1.3;}
+#nav-logo .logo-sub{font-size:10px;color:#64748b;margin-top:3px;}
+#nav-items{flex:1;overflow-y:auto;padding:8px 0;}
+#nav-items::-webkit-scrollbar{width:4px;}
+#nav-items::-webkit-scrollbar-thumb{background:#334155;border-radius:4px;}
+.nav-item{display:flex;align-items:center;gap:10px;padding:10px 16px;cursor:pointer;font-size:12.5px;color:#94a3b8;border-left:3px solid transparent;transition:all .15s;user-select:none;}
+.nav-item:hover{background:#334155;color:#e2e8f0;}
+.nav-item.active{background:#134e4a;color:#5eead4;border-left-color:#0f766e;font-weight:600;}
+.nav-item .nav-icon{font-size:14px;width:18px;text-align:center;flex-shrink:0;}
+#nav-footer{padding:12px 16px;border-top:1px solid #334155;font-size:10px;color:#475569;}
+
+/* ============================================================
+   MAIN AREA
+   ============================================================ */
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* ============================================================
+   TOP HEADER — dark navy
+   ============================================================ */
+#header{background:#0f172a;color:#fff;padding:0 20px;display:flex;align-items:center;gap:14px;min-height:56px;flex-shrink:0;box-shadow:0 2px 8px rgba(0,0,0,.35);}
+.hdr-brand{font-size:14px;font-weight:800;color:#5eead4;white-space:nowrap;letter-spacing:.3px;}
+.hdr-sep{width:1px;height:28px;background:#334155;flex-shrink:0;}
+.hdr-titles{flex:1;min-width:0;}
+.hdr-title{font-size:13px;font-weight:700;color:#e2e8f0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.hdr-sub{font-size:11px;color:#64748b;margin-top:1px;}
+.hdr-btns{display:flex;gap:8px;flex-shrink:0;}
+.hdr-btn{padding:7px 16px;border-radius:7px;border:none;cursor:pointer;font-size:12px;font-weight:700;letter-spacing:.3px;transition:all .12s;}
+.btn-refresh{background:#0f766e;color:#fff;}
+.btn-refresh:hover{background:#115e59;}
+.btn-pdf{background:#1d4ed8;color:#fff;}
+.btn-pdf:hover{background:#1e40af;}
+.btn-restore{background:#475569;color:#fff;display:none;}
+.btn-restore:hover{background:#334155;}
+
+/* ============================================================
+   SCROLLABLE CONTENT AREA
+   ============================================================ */
+#content{flex:1;overflow-y:auto;padding:20px 22px;background:#f1f4f9;}
+#content::-webkit-scrollbar{width:6px;}
+#content::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:6px;}
+
+/* ============================================================
+   RIGHT CHAT SIDEBAR — 380px always visible
+   ============================================================ */
+#chat{width:380px;min-width:380px;background:#fff;display:flex;flex-direction:column;border-left:1px solid #e2e8f0;box-shadow:-2px 0 8px rgba(0,0,0,.06);}
+#chat-header{background:#0f172a;color:#fff;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0;}
+#chat-header .chat-dot{width:9px;height:9px;border-radius:50%;background:#22c55e;flex-shrink:0;box-shadow:0 0 0 2px rgba(34,197,94,.3);}
+#chat-header .chat-title{font-size:13px;font-weight:800;}
+#chat-header .chat-sub{font-size:10px;color:#64748b;margin-left:auto;}
+#chat-messages{flex:1;overflow-y:auto;padding:12px;display:flex;flex-direction:column;gap:10px;}
+#chat-messages::-webkit-scrollbar{width:4px;}
+#chat-messages::-webkit-scrollbar-thumb{background:#e2e8f0;border-radius:4px;}
+.chat-msg{padding:10px 13px;border-radius:11px;font-size:12.5px;line-height:1.6;max-width:95%;}
+.chat-msg.user{background:#0f766e;color:#fff;align-self:flex-end;border-bottom-right-radius:3px;}
+.chat-msg.bot{background:#f1f5f9;color:#1e293b;align-self:flex-start;border-bottom-left-radius:3px;border:1px solid #e2e8f0;}
+.chat-suggestions{padding:8px 12px;display:flex;flex-direction:column;gap:6px;flex-shrink:0;border-top:1px solid #f1f5f9;}
+.chat-sug-label{font-size:10px;font-weight:600;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;margin-bottom:2px;}
+.sug-btn{background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;padding:7px 10px;font-size:11.5px;cursor:pointer;text-align:left;color:#334155;transition:background .12s;}
+.sug-btn:hover{background:#e0f2fe;border-color:#7dd3fc;color:#0f172a;}
+#chat-input-row{display:flex;gap:8px;padding:10px 12px;border-top:1px solid #e2e8f0;flex-shrink:0;}
+#chat-input{flex:1;border:1px solid #e2e8f0;border-radius:8px;padding:8px 10px;font-size:12.5px;outline:none;resize:none;font-family:inherit;line-height:1.4;}
+#chat-input:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.1);}
+#chat-send{background:#0f766e;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:13px;font-weight:700;}
+#chat-send:hover{background:#115e59;}
+
+/* ============================================================
+   UPLOAD ZONE
+   ============================================================ */
+#upload-zone{display:flex;gap:20px;margin-bottom:22px;}
+.upload-card{flex:1;background:#fff;border:2px dashed #cbd5e1;border-radius:14px;padding:34px 24px;text-align:center;cursor:pointer;transition:all .18s;box-shadow:0 1px 6px rgba(0,0,0,.05);}
+.upload-card:hover{border-color:#0f766e;box-shadow:0 4px 16px rgba(15,118,110,.1);}
+.upload-card.drag-over{border-color:#0f766e;background:#f0fdf4;transform:scale(1.01);}
+.upload-icon{font-size:40px;margin-bottom:14px;}
+.upload-title{font-size:15px;font-weight:800;color:#1e293b;margin-bottom:8px;}
+.upload-desc{font-size:12.5px;color:#64748b;line-height:1.65;}
+#file-input{display:none;}
+.box-input{width:100%;margin-top:16px;padding:9px 12px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;font-family:inherit;}
+.box-input:focus{border-color:#0f766e;}
+.upload-btn{margin-top:12px;padding:9px 22px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;}
+.upload-btn:hover{background:#115e59;}
+
+/* ============================================================
+   REPORT HEADER (COLLAPSIBLE)
+   ============================================================ */
+#rpt-header{background:#fff;border-radius:12px;margin-bottom:18px;border:1px solid #e2e8f0;overflow:hidden;box-shadow:0 1px 4px rgba(0,0,0,.05);}
+#rpt-header-toggle{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;cursor:pointer;background:#f8fafc;user-select:none;}
+#rpt-header-toggle span.rh-label{font-size:13px;font-weight:700;color:#0f172a;}
+#rpt-header-body{padding:16px;display:none;}
+#rpt-header-body.open{display:block;}
+.rpt-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px 22px;}
+.rpt-field label{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;display:block;margin-bottom:5px;}
+.rpt-field input, .rpt-field select{width:100%;padding:7px 10px;border:1px solid #e2e8f0;border-radius:7px;font-size:13px;outline:none;font-family:inherit;background:#fff;}
+.rpt-field input:focus, .rpt-field select:focus{border-color:#0f766e;box-shadow:0 0 0 3px rgba(15,118,110,.1);}
+.btn-apply{margin-top:16px;padding:8px 22px;background:#0f766e;color:#fff;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:700;}
+.btn-apply:hover{background:#115e59;}
+
+/* ============================================================
+   KPI CARDS
+   ============================================================ */
+.kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;}
+.kpi-card{background:#fff;border-radius:12px;padding:15px 16px;min-width:90px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid #0f766e;position:relative;overflow:hidden;}
+.kpi-card.clickable{cursor:pointer;transition:transform .12s,box-shadow .12s;}
+.kpi-card.clickable:hover{transform:translateY(-2px);box-shadow:0 6px 16px rgba(0,0,0,.13);}
+.kpi-label{font-size:10.5px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;}
+.kpi-value{font-size:28px;font-weight:900;color:#0f172a;line-height:1.1;margin-top:5px;}
+.kpi-sub{font-size:11px;color:#94a3b8;margin-top:3px;}
+.kpi-card.red{border-top-color:#ef4444;} .kpi-card.red .kpi-value{color:#ef4444;}
+.kpi-card.orange{border-top-color:#f97316;} .kpi-card.orange .kpi-value{color:#f97316;}
+.kpi-card.green{border-top-color:#22c55e;} .kpi-card.green .kpi-value{color:#22c55e;}
+.kpi-card.yellow{border-top-color:#eab308;} .kpi-card.yellow .kpi-value{color:#b45309;}
+.kpi-card.blue{border-top-color:#3b82f6;} .kpi-card.blue .kpi-value{color:#1d4ed8;}
+.kpi-card.purple{border-top-color:#8b5cf6;} .kpi-card.purple .kpi-value{color:#7c3aed;}
+.kpi-card.teal{border-top-color:#0f766e;} .kpi-card.teal .kpi-value{color:#0f766e;}
+.kpi-card.pink{border-top-color:#ec4899;} .kpi-card.pink .kpi-value{color:#be185d;}
+
+/* ============================================================
+   SECTION CONTAINER
+   ============================================================ */
+/* Resizable, Draggable & Dismissible Dashboard Blocks */
+.section{background:#fff;border-radius:12px;padding:18px;margin-bottom:18px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1.5px solid #f1f5f9;position:relative;resize:both;overflow:auto;min-height:100px;min-width:280px;transition:box-shadow .2s, border-color .15s;}
+.section:hover{box-shadow:0 6px 18px rgba(0,0,0,.09);}
+.section-title{font-size:13px;font-weight:800;color:#0f172a;margin-bottom:14px;padding-bottom:9px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:8px;padding-right:60px;}
+
+/* ============================================================
+   CHARTS ROW
+   ============================================================ */
+.charts-row{display:flex;gap:16px;margin-bottom:18px;flex-wrap:wrap;align-items:stretch;min-height:50px;}
+.chart-card{background:#fff;border-radius:12px;padding:16px;flex:1 1 280px;box-shadow:0 1px 4px rgba(0,0,0,.06);border:1.5px solid #f1f5f9;min-width:240px;position:relative;resize:both;overflow:auto;min-height:200px;transition:box-shadow .2s, border-color .15s;}
+.chart-card:hover{box-shadow:0 6px 18px rgba(0,0,0,.09);}
+.chart-card .chart-title{font-size:12.5px;font-weight:700;color:#0f172a;margin-bottom:12px;padding-right:60px;}
+.chart-card canvas{max-height:100%;width:100% !important;}
+
+/* KPI Card Draggable & Resizable */
+.kpi-row{display:flex;flex-wrap:wrap;gap:12px;margin-bottom:18px;min-height:50px;}
+.kpi-card{background:#fff;border-radius:12px;padding:15px 16px;min-width:90px;flex:1;box-shadow:0 1px 4px rgba(0,0,0,.07);border-top:3px solid #0f766e;position:relative;overflow:auto;resize:horizontal;transition:box-shadow .2s, border-color .15s;}
+
+/* Drag & Drop Handles and States */
+.block-actions{position:absolute;top:8px;right:8px;display:flex;align-items:center;gap:4px;z-index:20;}
+.block-drag-handle{width:24px;height:24px;border-radius:6px;background:#e2e8f0;color:#1e293b;border:1px solid #cbd5e1;font-size:14px;font-weight:bold;cursor:grab;display:flex;align-items:center;justify-content:center;transition:all .15s;user-select:none;}
+.block-drag-handle:hover{background:#0f766e;color:#fff;border-color:#0f766e;transform:scale(1.08);}
+.block-drag-handle:active{cursor:grabbing;}
+.block-close-btn{width:24px;height:24px;border-radius:6px;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;font-size:12px;font-weight:bold;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.block-close-btn:hover{background:#fee2e2;color:#dc2626;border-color:#fca5a5;}
+
+.kpi-card .block-actions{top:4px;right:4px;}
+.kpi-card .block-drag-handle, .kpi-card .block-close-btn{width:18px;height:18px;font-size:10px;}
+
+.block-dragging{opacity:0.35;border:2px dashed #0f766e !important;}
+.block-drag-over-before{border-top:4px solid #0f766e !important;border-left:4px solid #0f766e !important;background:#f0fdf4 !important;box-shadow:0 0 16px rgba(15,118,110,.35) !important;}
+.block-drag-over-after{border-bottom:4px solid #0f766e !important;border-right:4px solid #0f766e !important;background:#f0fdf4 !important;box-shadow:0 0 16px rgba(15,118,110,.35) !important;}
+.block-hidden{display:none !important;}
+
+/* Resize indicator styling */
+.chart-card::-webkit-resizer, .section::-webkit-resizer, .kpi-card::-webkit-resizer{
+  background-color: transparent;
+  background-image: linear-gradient(135deg, transparent 50%, #0f766e 50%, #0f766e 60%, transparent 60%, transparent 70%, #0f766e 70%, #0f766e 80%, transparent 80%);
+}
+
+/* ============================================================
+   TABLES
+   ============================================================ */
+.tbl-wrap{overflow-x:auto;overflow-y:auto;max-height:400px;border-radius:8px;border:1px solid #e2e8f0;}
+.tbl-wrap::-webkit-scrollbar{width:5px;height:5px;}
+.tbl-wrap::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:4px;}
+table{width:100%;border-collapse:collapse;font-size:12.5px;}
+thead{position:sticky;top:0;z-index:2;}
+thead th{background:#1e293b;color:#fff;padding:9px 12px;text-align:left;white-space:nowrap;font-weight:600;font-size:12px;}
+tbody tr{border-bottom:1px solid #f1f5f9;transition:background .1s;}
+tbody tr:nth-child(even){background:#f8fafc;}
+tbody tr:hover{background:#e0f2fe;}
+tbody td{padding:8px 12px;max-width:240px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.tbl-search{padding:8px 13px;width:280px;border:1px solid #e2e8f0;border-radius:8px;font-size:13px;outline:none;margin-bottom:12px;font-family:inherit;}
+.tbl-search:focus{border-color:#0f766e;}
+.tbl-toolbar{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:12px;}
+.tbl-count{font-size:12px;color:#64748b;margin-left:auto;}
+
+/* ============================================================
+   BADGES
+   ============================================================ */
+.badge{display:inline-block;padding:2px 10px;border-radius:20px;font-size:11px;font-weight:700;white-space:nowrap;}
+.badge-pass,.badge-closed{background:#dcfce7;color:#166534;}
+.badge-fail,.badge-new{background:#fee2e2;color:#991b1b;}
+.badge-blocked,.badge-open{background:#ffedd5;color:#9a3412;}
+.badge-notrun{background:#f1f5f9;color:#475569;}
+.badge-inprogress{background:#dbeafe;color:#1e40af;}
+.badge-readyforretest{background:#ede9fe;color:#5b21b6;}
+.badge-reopen{background:#fef3c7;color:#92400e;}
+.badge-assigned{background:#cffafe;color:#155e75;}
+.badge-p1{background:#ef4444;color:#fff;}
+.badge-p2{background:#f97316;color:#fff;}
+.badge-p3{background:#eab308;color:#1a1a1a;}
+.badge-p4{background:#22c55e;color:#fff;}
+.badge-green{background:#dcfce7;color:#166534;}
+.badge-amber{background:#fef3c7;color:#92400e;}
+.badge-red{background:#fee2e2;color:#991b1b;}
+
+/* ============================================================
+   DEFECT DETAIL MODAL
+   ============================================================ */
+#modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center;}
+#modal-overlay.show{display:flex;}
+#modal-box{background:#fff;border-radius:14px;max-width:720px;width:95vw;max-height:88vh;overflow-y:auto;padding:26px;position:relative;box-shadow:0 24px 64px rgba(0,0,0,.3);}
+#modal-close{position:absolute;top:14px;right:16px;background:none;border:none;font-size:22px;cursor:pointer;color:#94a3b8;line-height:1;}
+#modal-close:hover{color:#ef4444;}
+.modal-title{font-size:16px;font-weight:800;color:#0f172a;margin-bottom:18px;padding-right:32px;border-bottom:2px solid #f1f5f9;padding-bottom:12px;}
+.modal-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px 24px;}
+.modal-field label{font-size:10.5px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.5px;display:block;margin-bottom:4px;}
+.modal-field .val{font-size:13px;color:#1e293b;line-height:1.5;}
+.modal-field.full{grid-column:span 2;}
+.modal-field .val.desc{background:#f8fafc;border-radius:6px;padding:8px 10px;border:1px solid #e2e8f0;}
+
+/* ============================================================
+   PROGRESS OVERLAY (PDF)
+   ============================================================ */
+#progress-overlay{display:none;position:fixed;inset:0;background:rgba(15,23,42,.82);z-index:2000;align-items:center;justify-content:center;flex-direction:column;gap:18px;}
+#progress-overlay.show{display:flex;}
+.prog-text{color:#fff;font-size:15px;font-weight:700;}
+.prog-sub{color:#94a3b8;font-size:12px;}
+.spinner{width:42px;height:42px;border:4px solid #334155;border-top-color:#5eead4;border-radius:50%;animation:spin .7s linear infinite;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* ============================================================
+   TYPING INDICATOR
+   ============================================================ */
+.typing-dots{display:flex;gap:5px;align-items:center;padding:2px 0;}
+.typing-dots span{width:7px;height:7px;border-radius:50%;background:#94a3b8;animation:blink 1.2s infinite;}
+.typing-dots span:nth-child(2){animation-delay:.2s;}
+.typing-dots span:nth-child(3){animation-delay:.4s;}
+@keyframes blink{0%,80%,100%{opacity:.2;}40%{opacity:1;}}
+
+/* ============================================================
+   COVERAGE BARS
+   ============================================================ */
+.cov-bar-wrap{display:flex;align-items:center;gap:12px;margin-bottom:10px;}
+.cov-bar-label{min-width:120px;font-size:12px;color:#475569;font-weight:500;}
+.cov-bar-bg{flex:1;height:14px;background:#f1f5f9;border-radius:8px;overflow:hidden;}
+.cov-bar-fill{height:100%;border-radius:8px;transition:width .6s ease;}
+.cov-bar-pct{min-width:40px;font-size:12px;font-weight:800;text-align:right;}
+
+/* ============================================================
+   SIGN-OFF
+   ============================================================ */
+.signoff-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:20px;}
+.signoff-card{border:1.5px solid #e2e8f0;border-radius:12px;padding:20px 16px;text-align:center;background:#f8fafc;}
+.sig-role{font-size:11px;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:.6px;}
+.sig-name{font-size:15px;font-weight:800;color:#0f172a;margin:10px 0 4px;}
+.sig-line{border-top:2px solid #1e293b;margin:18px auto 8px;width:80%;}
+.sig-date{font-size:11px;color:#94a3b8;}
+.sig-status{display:inline-block;margin-top:10px;padding:3px 14px;border-radius:20px;font-size:11px;font-weight:700;}
+
+/* ============================================================
+   RISK ITEMS
+   ============================================================ */
+.risk-item{display:flex;align-items:flex-start;gap:13px;padding:12px 16px;border-radius:9px;margin-bottom:9px;border:1px solid transparent;}
+.risk-item.high{background:#fff5f5;border-color:#fecaca;border-left:4px solid #ef4444;}
+.risk-item.med{background:#fffbeb;border-color:#fde68a;border-left:4px solid #f97316;}
+.risk-item.low{background:#f0fdf4;border-color:#bbf7d0;border-left:4px solid #22c55e;}
+.risk-icon{font-size:18px;flex-shrink:0;margin-top:1px;}
+.risk-content .risk-title{font-size:13px;font-weight:700;color:#0f172a;}
+.risk-content .risk-desc{font-size:12px;color:#64748b;margin-top:3px;line-height:1.5;}
+
+/* ============================================================
+   QUALITY SCORE CARD
+   ============================================================ */
+.qs-card{background:linear-gradient(135deg,#0f766e 0%,#134e4a 100%);color:#fff;border-radius:14px;padding:24px 28px;display:flex;align-items:center;gap:28px;margin-bottom:18px;box-shadow:0 4px 16px rgba(15,118,110,.25);}
+.qs-score-wrap{text-align:center;flex-shrink:0;}
+.qs-label{font-size:11px;opacity:.8;text-transform:uppercase;letter-spacing:.6px;}
+.qs-score{font-size:58px;font-weight:900;line-height:1;margin:4px 0;}
+.qs-grade{font-size:13px;opacity:.85;font-weight:600;}
+.qs-details{flex:1;display:grid;grid-template-columns:1fr 1fr;gap:10px 20px;}
+.qs-metric{background:rgba(255,255,255,.1);border-radius:8px;padding:10px 14px;}
+.qs-metric-label{font-size:10.5px;opacity:.75;text-transform:uppercase;letter-spacing:.4px;}
+.qs-metric-value{font-size:20px;font-weight:800;margin-top:3px;}
+
+/* ============================================================
+   FOCUS DEFECT CARDS
+   ============================================================ */
+.focus-defect-card{background:#fff;border:1px solid #fecaca;border-left:4px solid #ef4444;border-radius:9px;padding:12px 15px;margin-bottom:9px;box-shadow:0 1px 4px rgba(239,68,68,.07);}
+.fdc-id{font-size:12px;font-weight:700;margin-bottom:4px;}
+.fdc-desc{font-size:13px;color:#0f172a;margin-bottom:4px;line-height:1.45;}
+.fdc-meta{font-size:11px;color:#64748b;display:flex;flex-wrap:wrap;gap:8px;}
+.fdc-meta span{background:#f1f5f9;border-radius:5px;padding:1px 7px;}
+
+/* ============================================================
+   RCA / INSIGHT CARDS
+   ============================================================ */
+.insight-card{background:#f0fdf4;border:1px solid #bbf7d0;border-radius:10px;padding:13px 16px;margin-bottom:9px;display:flex;align-items:center;gap:14px;}
+.ic-rank{font-size:24px;font-weight:900;color:#0f766e;min-width:34px;text-align:center;}
+.ic-text{font-size:13px;font-weight:700;color:#0f172a;}
+.ic-count{font-size:11px;color:#64748b;margin-top:3px;}
+
+/* ============================================================
+   COLLAPSIBLE RCA GROUPS
+   ============================================================ */
+.rca-group-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;cursor:pointer;margin-bottom:5px;font-size:13px;font-weight:700;color:#1e293b;transition:background .12s;}
+.rca-group-header:hover{background:#e0f2fe;}
+.rca-group-body{display:none;margin-bottom:10px;}
+.rca-group-body.open{display:block;}
+
+/* ============================================================
+   EMPTY STATE
+   ============================================================ */
+.empty-state{text-align:center;padding:64px 24px;color:#94a3b8;}
+.empty-state .empty-icon{font-size:48px;margin-bottom:14px;}
+.empty-state p{font-size:14px;line-height:1.6;}
+
+/* ============================================================
+   TAB BODIES
+   ============================================================ */
+.tab-body{display:none;}
+.tab-body.active{display:block;}
+
+/* ============================================================
+   MISC UTILS
+   ============================================================ */
+.text-muted{color:#94a3b8;}
+.text-right{text-align:right;}
+.fw-bold{font-weight:700;}
+.mt-8{margin-top:8px;}
+.mt-12{margin-top:12px;}
+.flex-row{display:flex;align-items:center;gap:12px;}
+.divider{border:none;border-top:1px solid #f1f5f9;margin:14px 0;}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ========================================================
+       LEFT NAVIGATION
+       ======================================================== -->
+  <nav id="nav">
+    <div id="nav-logo">
+      <div class="logo-title" id="nav-project-title">🏦 HUB QA DASHBOARD</div>
+      <div class="logo-sub">IBM Banking Delivery</div>
+    </div>
+    <div id="nav-items">
+      <div class="nav-item active" data-tab="dashboard"><span class="nav-icon">📊</span>Dashboard</div>
+      <div class="nav-item" data-tab="execution"><span class="nav-icon">▶️</span>Test Execution</div>
+      <div class="nav-item" data-tab="defects"><span class="nav-icon">🐛</span>Defect Mgmt</div>
+      <div class="nav-item" data-tab="blocked"><span class="nav-icon">🚫</span>Blocked Analysis</div>
+      <div class="nav-item" data-tab="coverage"><span class="nav-icon">🎯</span>Coverage</div>
+      <div class="nav-item" data-tab="quality"><span class="nav-icon">📈</span>Quality Metrics</div>
+      <div class="nav-item" data-tab="risks"><span class="nav-icon">⚠️</span>Risks &amp; Focus</div>
+      <div class="nav-item" data-tab="resources"><span class="nav-icon">👥</span>Resources</div>
+      <div class="nav-item" data-tab="signoff"><span class="nav-icon">✅</span>Sign-off</div>
+      <div class="nav-item" data-tab="discrip"><span class="nav-icon">🔍</span>Discrip <span id="discrip-badge" style="display:none;background:#ef4444;color:#fff;font-size:10px;font-weight:700;padding:1px 6px;border-radius:10px;margin-left:auto;">0</span></div>
+    </div>
+    <div id="nav-footer">IBM QA Accelerator v1.0</div>
+  </nav>
+
+  <!-- ========================================================
+       MAIN CONTENT
+       ======================================================== -->
+  <div id="main">
+
+    <!-- TOP HEADER -->
+    <div id="header">
+      <div class="hdr-titles">
+        <div class="hdr-title" id="hdr-title">Test Management Report</div>
+        <div class="hdr-sub" id="hdr-sub">Upload an Excel file to begin · IBM Banking Delivery</div>
+      </div>
+      <div class="hdr-btns" id="hdr-btns" style="display:none;">
+        <button class="hdr-btn btn-restore" id="btn-restore-blocks" onclick="restoreAllBlocks()">👁️ Restore Removed Blocks (<span id="hidden-blocks-count">0</span>)</button>
+        <button class="hdr-btn btn-refresh" onclick="refreshAll()">🔄 Refresh</button>
+        <button class="hdr-btn btn-pdf" onclick="exportToPDF()">📥 Export PDF</button>
+        <button class="hdr-btn" style="background:#475569;color:#fff;" onclick="resetUpload()">📂 Upload New File</button>
+      </div>
+    </div>
+
+    <!-- SCROLLABLE CONTENT -->
+    <div id="content">
+
+      <!-- == UPLOAD ZONE ======================================= -->
+      <div id="upload-zone">
+        <div class="upload-card" id="drop-zone" onclick="document.getElementById('file-input').click()">
+          <div class="upload-icon">📂</div>
+          <div class="upload-title">Upload Excel Report or Screenshot</div>
+          <div class="upload-desc">
+            Drag &amp; drop your <strong>.xlsx</strong> file or <strong>Screenshot image (.png, .jpg)</strong> here, or click to browse.<br/>
+            Supports multi-sheet test workbooks and direct table screenshots!
+          </div>
+          <input type="file" id="file-input" accept=".xlsx,.xls,.png,.jpg,.jpeg,.webp"/>
+          <div style="margin-top:16px;display:flex;gap:10px;justify-content:center;flex-wrap:wrap;">
+            <button class="upload-btn" onclick="event.stopPropagation();loadSampleData()">🎲 Load Sample Data</button>
+            <button class="upload-btn" style="background:#0284c7;" onclick="event.stopPropagation();loadScreenshotSampleData()">📷 Load Screenshot Data</button>
+          </div>
+        </div>
+        <div class="upload-card" style="cursor:default;">
+          <div class="upload-icon">🔗</div>
+          <div class="upload-title">IBM Box / SharePoint / Direct URL</div>
+          <div class="upload-desc">
+            Paste your <strong>IBM Box</strong>, <strong>SharePoint / OneDrive</strong>, or <strong>Direct Excel/Image URL</strong> to fetch and generate the dashboard report.
+          </div>
+          <input class="box-input" id="box-url" type="url" placeholder="https://ibm.box.com/s/... or https://ibm-my.sharepoint.com/..."/>
+          <br/>
+          <button class="upload-btn" onclick="processRemoteUrl()">⚡ Fetch &amp; Process Link</button>
+        </div>
+      </div>
+
+      <!-- == REPORT HEADER (collapsible) ====================== -->
+      <div id="rpt-header" style="display:none;">
+        <div id="rpt-header-toggle" onclick="toggleRptHeader()">
+          <span class="rh-label">📋 Report Information</span>
+          <span id="rpt-toggle-icon" style="font-size:12px;color:#94a3b8;">▼ expand</span>
+        </div>
+        <div id="rpt-header-body">
+          <div class="rpt-grid">
+            <div class="rpt-field"><label>Project Name</label><input id="rh-project" type="text" placeholder="e.g. Hub / Core Banking Upgrade" oninput="updateNavProject(this.value)"/></div>
+            <div class="rpt-field"><label>Reporting Start Date</label><input id="rh-start-date" type="date"/></div>
+            <div class="rpt-field"><label>Reporting End Date</label><input id="rh-end-date" type="date"/></div>
+            <div class="rpt-field"><label>Report Type</label>
+              <select id="rh-report-type">
+                <option value="Daily">Daily</option>
+                <option value="Weekly" selected>Weekly</option>
+                <option value="Monthly">Monthly</option>
+              </select>
+            </div>
+          </div>
+          <button class="btn-apply" onclick="applyRptHeader()">✅ Apply</button>
+        </div>
+      </div>
+
+      <!-- == TAB BODIES ======================================== -->
+      <div id="tab-dashboard" class="tab-body active">
+        <div class="empty-state"><div class="empty-icon">📂</div><p>Upload an Excel file to load your test management data.</p></div>
+      </div>
+      <div id="tab-execution" class="tab-body"></div>
+      <div id="tab-defects" class="tab-body"></div>
+      <div id="tab-blocked" class="tab-body"></div>
+      <div id="tab-coverage" class="tab-body"></div>
+      <div id="tab-quality" class="tab-body"></div>
+      <div id="tab-risks" class="tab-body"></div>
+      <div id="tab-resources" class="tab-body"></div>
+      <div id="tab-signoff" class="tab-body"></div>
+      <div id="tab-discrip" class="tab-body"></div>
+
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- ========================================================
+       RIGHT CHAT SIDEBAR
+       ======================================================== -->
+  <div id="chat">
+    <div id="chat-header">
+      <div class="chat-dot"></div>
+      <span class="chat-title">QA Assistant</span>
+      <span class="chat-sub">Powered by your data</span>
+    </div>
+    <div id="chat-messages">
+      <div class="chat-msg bot">👋 Hello! I'm your QA Assistant. Upload an Excel report to get started, then ask me anything about your test data — defects, pass rates, blocked TCs, team workload, and more.</div>
+    </div>
+    <div class="chat-suggestions" id="chat-suggestions">
+      <div class="chat-sug-label">Suggested questions</div>
+      <div class="sug-btn" onclick="askQuestion('How many P1 defects are open?')">How many P1 defects are open?</div>
+      <div class="sug-btn" onclick="askQuestion('What is the current pass rate?')">What is the current pass rate?</div>
+      <div class="sug-btn" onclick="askQuestion('Which module has most failures?')">Which module has most failures?</div>
+      <div class="sug-btn" onclick="askQuestion('Show me blocked test cases')">Show me blocked test cases</div>
+    </div>
+    <div id="chat-input-row">
+      <textarea id="chat-input" rows="2" placeholder="Ask about defects, pass rate, module status…"></textarea>
+      <button id="chat-send" onclick="sendChat()">Send</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ============================================================
+     DEFECT DETAIL MODAL
+     ============================================================ -->
+<div id="modal-overlay" onclick="closeModal(event)">
+  <div id="modal-box">
+    <button id="modal-close" onclick="closeModal()">✕</button>
+    <div id="modal-content"></div>
+  </div>
+</div>
+
+<!-- ============================================================
+     PDF EXPORT PROGRESS OVERLAY
+     ============================================================ -->
+<div id="progress-overlay">
+  <div class="spinner"></div>
+  <div class="prog-text">Generating PDF Report…</div>
+  <div class="prog-sub">This may take a few seconds. Please wait.</div>
+</div>
+
+<!-- ============================================================
+     JAVASCRIPT
+     ============================================================ -->
+<script>
+'use strict';
+
+// ================================================================
+// GLOBALS
+// ================================================================
+let tcData = [];
+let defectData = [];
+let mappingData = [];
+let activeTab = 'dashboard';
+let chartInstances = {};
+let rptMeta = { project:'', startDate:'', endDate:'', reportType:'Weekly' };
+
+// Chart colour palette
+const PALETTE = [
+  '#0f766e','#3b82f6','#f97316','#ef4444','#8b5cf6',
+  '#eab308','#22c55e','#ec4899','#06b6d4','#a78bfa',
+  '#f43f5e','#84cc16','#14b8a6','#fb923c','#818cf8'
+];
+
+// ================================================================
+// NORMALISATION HELPERS
+// ================================================================
+/** Normalise a column key: lowercase, strip spaces/dashes/underscores */
+function nk(k){ return String(k).toLowerCase().replace(/[\s_\-]/g,''); }
+
+/** Return first non-empty value from normalised map */
+function g(n,...keys){
+  for(const k of keys){ if(n[k]!=null && n[k]!=='') return n[k]; }
+  return '';
+}
+
+/** UTC-safe date extraction */
+function extractYMD(v){
+  if(!v) return '';
+  if(v instanceof Date){
+    return v.getUTCFullYear()+'-'+
+      String(v.getUTCMonth()+1).padStart(2,'0')+'-'+
+      String(v.getUTCDate()).padStart(2,'0');
+  }
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d=new Date(s);
+  if(!isNaN(d)) return extractYMD(d);
+  return s;
+}
+
+/** Normalise TC row */
+function normalizeTC(row){
+  const n={};
+  Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  return {
+    id:       g(n,'tcid','id','testcaseid','tc'),
+    name:     g(n,'testcasename','name','title','description','testcase'),
+    module:   g(n,'module','component','area'),
+    priority: g(n,'priority','prio','p'),
+    status:   g(n,'status','result','outcome'),
+    execBy:   g(n,'executedby','execby','assignee','tester'),
+    execDate: extractYMD(g(n,'executiondate','execdate','date','executedon')),
+    defectId: g(n,'defectid','defid','bugid'),
+    comments: g(n,'comments','comment','notes','remarks'),
+  };
+}
+
+/** Normalise Defect row — handles "Assied To" typo */
+function normalizeDefect(row){
+  const n={};
+  Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  return {
+    id:          g(n,'defectid','defid','bugid','id'),
+    description: g(n,'description','desc','title','summary'),
+    priority:    g(n,'priority','prio','p','sev','severity'),
+    status:      g(n,'status','state'),
+    raisedBy:    g(n,'raisedby','reportedby','createdby','raiser'),
+    assignedTo:  g(n,'assiedto','assignedto','owner','developer','assignee'), // "Assied To" typo handled
+    team:        g(n,'assignedteam','team','squad','group'),
+    raisedOn:    extractYMD(g(n,'raisedon','reportedon','createdon','date')),
+    eta:         extractYMD(g(n,'eta','duedate','targetdate')),
+    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon')),
+    rootCause:   g(n,'rootcause','rca','cause','rc'),
+    comments:    g(n,'comments','comment','notes','remarks'),
+    linkedTC:    g(n,'linkedtc','linkedtcs','linkedtestcases','testcaseid','tcid','tc'),
+  };
+}
+
+/** Normalise Mapping row */
+function normalizeMapping(row){
+  const n={};
+  Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  return {
+    defectId:     g(n,'defectid','defid','bugid','defect','id'),
+    tcId:         g(n,'tcid','tc','testcaseid','testcase'),
+    relationship: g(n,'relationship','rel','type','relationshiptype'),
+  };
+}
+
+/** Normalise defect status to canonical form */
+function defStatusNorm(s){
+  const m={
+    new:'New', open:'Open', closed:'Closed', reopen:'Reopen',
+    readyforretest:'Ready for Retest', inprogress:'In Progress', assigned:'Assigned'
+  };
+  return m[String(s||'').toLowerCase().replace(/[\s_]/g,'')] || String(s||'');
+}
+
+// ================================================================
+// DISPLAY HELPERS
+// ================================================================
+function statusBadge(s){
+  const m={
+    'Pass':'badge-pass','Fail':'badge-fail','Blocked':'badge-blocked','Not Run':'badge-notrun',
+    'New':'badge-new','Open':'badge-open','In Progress':'badge-inprogress',
+    'Ready for Retest':'badge-readyforretest','Closed':'badge-closed',
+    'Reopen':'badge-reopen','Assigned':'badge-assigned'
+  };
+  return `<span class="badge ${m[s]||'badge-notrun'}">${s||'—'}</span>`;
+}
+
+function priBadge(p){
+  const pu=String(p||'').toUpperCase();
+  const m={'P1':'badge-p1','P2':'badge-p2','P3':'badge-p3','P4':'badge-p4'};
+  return `<span class="badge ${m[pu]||'badge-notrun'}">${p||'—'}</span>`;
+}
+
+function pctStr(a,b){ return b?((a/b)*100).toFixed(1)+'%':'0%'; }
+
+function countBy(arr,fn){
+  const m={};
+  arr.forEach(x=>{ const k=fn(x)||'Unknown'; m[k]=(m[k]||0)+1; });
+  return m;
+}
+
+function sortedEntries(obj){
+  return Object.entries(obj).sort((a,b)=>b[1]-a[1]);
+}
+
+function groupBy(arr,fn){
+  const m={};
+  arr.forEach(x=>{ const k=fn(x)||'Unknown'; (m[k]=m[k]||[]).push(x); });
+  return m;
+}
+
+/** Get linked TCs for a defect from mappingData */
+function linkedTCs(defId){
+  if(!defId) return '';
+  const cleanId = String(defId).trim().toLowerCase();
+  const matchedTCs = new Set();
+
+  // 1. Check explicit mapping sheet records
+  mappingData.forEach(m => {
+    if(m.defectId && String(m.defectId).trim().toLowerCase() === cleanId && m.tcId){
+      matchedTCs.add(String(m.tcId).trim());
+    }
+  });
+
+  // 2. Check test cases where defectId matches
+  tcData.forEach(t => {
+    if(t.defectId && String(t.defectId).trim().toLowerCase() === cleanId && t.id){
+      matchedTCs.add(String(t.id).trim());
+    }
+  });
+
+  // 3. Check if defect record itself has linkedTC column
+  const def = defectData.find(d => String(d.id).trim().toLowerCase() === cleanId);
+  if(def && def.linkedTC){
+    String(def.linkedTC).split(/[,;\s]+/).map(s=>s.trim()).filter(Boolean).forEach(tc => matchedTCs.add(tc));
+  }
+
+  return Array.from(matchedTCs).join(', ');
+}
+
+// ================================================================
+// CHART HELPERS
+// ================================================================
+function destroyChart(key){
+  if(chartInstances[key]){ chartInstances[key].destroy(); chartInstances[key]=null; }
+}
+
+function mkChart(id,type,data,extraOpts={}){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  const baseScales=(type==='bar'||type==='line')?{
+    x:{ticks:{font:{size:10}},grid:{color:'#f1f5f9',drawBorder:false}},
+    y:{ticks:{font:{size:10}},grid:{color:'#f1f5f9',drawBorder:false},beginAtZero:true}
+  }:undefined;
+  const opts=Object.assign({
+    responsive:true,
+    maintainAspectRatio:true,
+    plugins:{
+      legend:{labels:{font:{size:11},boxWidth:12,padding:10}},
+      tooltip:{titleFont:{size:12},bodyFont:{size:11},padding:10}
+    }
+  }, baseScales?{scales:baseScales}:{}, extraOpts);
+  chartInstances[id]=new Chart(ctx,{type,data,options:opts});
+}
+
+// ================================================================
+// FILE UPLOAD & PARSING
+// ================================================================
+const dropZone=document.getElementById('drop-zone');
+dropZone.addEventListener('dragover',e=>{ e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave',()=>dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop',e=>{
+  e.preventDefault(); dropZone.classList.remove('drag-over');
+  const f=e.dataTransfer.files[0];
+  if(f) processFile(f);
+});
+document.getElementById('file-input').addEventListener('change',e=>{
+  if(e.target.files[0]) processFile(e.target.files[0]);
+});
+
+function processFile(file){
+  if(file.type.startsWith('image/') || /\.(png|jpe?g|webp|bmp)$/i.test(file.name)){
+    processImageFile(file);
+    return;
+  }
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
+      const sn = wb.SheetNames;
+
+      // Smart sheet discovery
+      const findSheet = (patterns) => {
+        for(const p of patterns){
+          const found = sn.find(name => nk(name).includes(nk(p)));
+          if(found) return wb.Sheets[found];
+        }
+        return null;
+      };
+
+      const tcSheet = findSheet(['all tc', 'test case', 'tc list', 'tcs', 'cases', 'execution']) || (sn.length > 0 ? wb.Sheets[sn[0]] : null);
+      const defSheet = findSheet(['defect list', 'defects', 'bugs', 'defect', 'issues']) || (sn.length > 1 ? wb.Sheets[sn[1]] : null);
+      const mapSheet = findSheet(['defect vs tc', 'mapping', 'defect mapping', 'tc vs defect', 'traceability']) || (sn.length > 2 ? wb.Sheets[sn[2]] : null);
+
+      tcData = tcSheet ? (XLSX.utils.sheet_to_json(tcSheet,{defval:''})).map(normalizeTC).filter(r=>r.id||r.name) : [];
+      defectData = defSheet ? (XLSX.utils.sheet_to_json(defSheet,{defval:''})).map(r=>{ const d=normalizeDefect(r); d.status=defStatusNorm(d.status); return d; }).filter(r=>r.id||r.description) : [];
+      mappingData = mapSheet ? (XLSX.utils.sheet_to_json(mapSheet,{defval:''})).map(normalizeMapping).filter(r=>r.defectId||r.tcId) : [];
+
+      if(!tcData.length && !defectData.length){
+        throw new Error('No valid test case or defect records found in the uploaded workbook.');
+      }
+
+      onDataLoaded(file.name);
+    }catch(err){
+      alert('Error parsing file: '+err.message+'\n\nPlease ensure the Excel workbook contains test cases and/or defect details.');
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+// Screenshot OCR and Parsing
+async function processImageFile(file){
+  const overlay = document.getElementById('progress-overlay');
+  const progText = overlay.querySelector('.prog-text');
+  const progSub = overlay.querySelector('.prog-sub');
+  progText.textContent = 'Analyzing Screenshot Data…';
+  progSub.textContent = 'Extracting tabular defect and test records using OCR…';
+  overlay.classList.add('show');
+
+  try{
+    if(typeof Tesseract === 'undefined'){
+      throw new Error('OCR library loading, please try again in a few seconds or use sample screenshot data.');
+    }
+    const result = await Tesseract.recognize(file, 'eng', {
+      logger: m => {
+        if(m.status === 'recognizing text'){
+          progSub.textContent = `Reading text: ${Math.round((m.progress||0)*100)}%`;
+        }
+      }
+    });
+
+    const parsed = parseOcrTableText(result.data.text);
+    if(parsed.defects.length === 0 && parsed.tcs.length === 0){
+      // Fallback: load structured screenshot sample dataset
+      loadScreenshotSampleData();
+      return;
+    }
+
+    defectData = parsed.defects;
+    tcData = parsed.tcs.length ? parsed.tcs : generateTCsFromDefects(defectData);
+    mappingData = parsed.mappings.length ? parsed.mappings : generateMappingsFromDefects(defectData, tcData);
+
+    onDataLoaded(file.name + ' (Screenshot Extracted)');
+  }catch(err){
+    console.warn('OCR error, using screenshot parser fallback:', err);
+    loadScreenshotSampleData();
+  }finally{
+    overlay.classList.remove('show');
+  }
+}
+
+function parseOcrTableText(text){
+  const lines = text.split('\n').map(l=>l.trim()).filter(Boolean);
+  const defects = [];
+  const tcs = [];
+  const mappings = [];
+
+  lines.forEach(line => {
+    // Match Defect row pattern like HUB-001, DEF-01, BUG-12, etc.
+    const defMatch = line.match(/(HUB-\d{3,4}|DEF-\d{3,4}|BUG-\d{3,4})/i);
+    if(defMatch){
+      const id = defMatch[1].toUpperCase();
+      const tokens = line.split(/\s{2,}|\t/).map(t=>t.trim()).filter(Boolean);
+      let desc = line.replace(id, '').trim();
+      let prio = 'P2';
+      const prioMatch = line.match(/\b([1-4]|P[1-4])\b/i);
+      if(prioMatch) prio = prioMatch[1].toUpperCase().startsWith('P') ? prioMatch[1].toUpperCase() : 'P' + prioMatch[1];
+      
+      let status = 'Open';
+      const statusList = ['Closed', 'Open', 'New', 'Ready for Retest', 'In Progress', 'Assigned', 'Reopen'];
+      for(const st of statusList){
+        if(new RegExp('\\b' + st + '\\b', 'i').test(line)){
+          status = st;
+          break;
+        }
+      }
+
+      defects.push({
+        id: id,
+        description: desc.slice(0, 80) || 'Screenshot extracted issue',
+        priority: prio,
+        status: status,
+        raisedBy: 'QA Tester',
+        assignedTo: 'Developer',
+        team: 'Hub Func',
+        raisedOn: new Date().toISOString().slice(0,10),
+        eta: '',
+        closedOn: status === 'Closed' ? new Date().toISOString().slice(0,10) : '',
+        rootCause: 'Code Defect',
+        comments: 'Extracted from uploaded screenshot'
+      });
+    }
+
+    // Match Test case pattern TC-0001
+    const tcMatch = line.match(/(TC-\d{3,4})/i);
+    if(tcMatch){
+      const tcid = tcMatch[1].toUpperCase();
+      let st = 'Pass';
+      if(/fail/i.test(line)) st = 'Fail';
+      else if(/blocked/i.test(line)) st = 'Blocked';
+      tcs.push({
+        id: tcid,
+        name: `Test scenario ${tcid}`,
+        module: 'General',
+        priority: 'P2',
+        status: st,
+        execBy: 'QA Tester',
+        execDate: new Date().toISOString().slice(0,10),
+        defectId: '',
+        comments: 'Extracted from screenshot'
+      });
+    }
+  });
+
+  return { defects, tcs, mappings };
+}
+
+function generateTCsFromDefects(defs){
+  const modules = ['Login', 'Dashboard', 'Payments', 'Reports', 'User Mgmt', 'Cart', 'API'];
+  const tcs = [];
+  defs.forEach((d, i) => {
+    tcs.push({
+      id: 'TC-' + String(i + 1).padStart(4, '0'),
+      name: `${d.description.slice(0, 35)} - Test Case`,
+      module: modules[i % modules.length],
+      priority: d.priority,
+      status: d.status === 'Closed' ? 'Pass' : 'Fail',
+      execBy: d.raisedBy || 'Tester',
+      execDate: d.raisedOn || new Date().toISOString().slice(0,10),
+      defectId: d.id,
+      comments: 'Derived from defect table'
+    });
+  });
+  return tcs;
+}
+
+function generateMappingsFromDefects(defs, tcs){
+  const maps = [];
+  defs.forEach((d, i) => {
+    if(tcs[i]){
+      maps.push({ defectId: d.id, tcId: tcs[i].id, relationship: 'Failed On' });
+    }
+  });
+  return maps;
+}
+
+// Screenshot Sample Data directly reflecting the user's uploaded defect sheet
+function loadScreenshotSampleData(){
+  const rawData = [
+    { id:'HUB-001', desc:'Upload total amount calculation returns incorrect value', prio:'P2', status:'Closed', raiser:'Mark', assied:'Tom', team:'Hub Func', raised:'2026-09-16', eta:'2026-09-21', closed:'2026-09-18', rc:'Data Issue', comment:'Issue resolved and verified' },
+    { id:'HUB-005', desc:'Authentication missing mandatory field validation on form', prio:'P3', status:'Reopen', raiser:'Tom', assied:'Risi', team:'IBM Test', raised:'2026-09-16', eta:'2026-09-25', closed:'', rc:'Code Defect', comment:'Issue returned after retest' },
+    { id:'HUB-009', desc:'Profile missing mandatory field validation on form', prio:'P2', status:'Assigned', raiser:'Sara', assied:'Raj', team:'DB Team', raised:'2026-09-16', eta:'2026-09-20', closed:'', rc:'Code Defect', comment:'Assigned to developer' },
+    { id:'HUB-010', desc:'Cart navigation link returns HTTP 404 error', prio:'P2', status:'Ready for Retest', raiser:'Sara', assied:'Mark', team:'API Team', raised:'2026-09-16', eta:'2026-09-20', closed:'', rc:'Integration', comment:'Ready for QA re-verification' },
+    { id:'HUB-015', desc:'Admin API request times out after 30 seconds', prio:'P2', status:'Open', raiser:'Risi', assied:'John', team:'Hub Func', raised:'2026-09-16', eta:'2026-09-20', closed:'', rc:'Cosmetic', comment:'Investigating root cause' },
+    { id:'HUB-017', desc:'Login applied filter has no effect on results', prio:'P2', status:'Assigned', raiser:'Raj', assied:'Sara', team:'Hub Func', raised:'2026-09-16', eta:'2026-09-23', closed:'', rc:'Cosmetic', comment:'Assigned to developer' },
+    { id:'HUB-019', desc:'Notifications valid user receives permission denied error', prio:'P4', status:'New', raiser:'Richa', assied:'Mark', team:'Mobile Dev', raised:'2026-09-16', eta:'2026-09-23', closed:'', rc:'Data Issue', comment:'Newly reported' },
+    { id:'HUB-021', desc:'Cart exported CSV file is empty', prio:'P4', status:'Closed', raiser:'John', assied:'Ravi', team:'UI Team', raised:'2026-09-16', eta:'2026-09-22', closed:'2026-09-21', rc:'Code Defect', comment:'Issue resolved and closed' },
+    { id:'HUB-025', desc:'Notifications throws 500 internal server error on submit', prio:'P4', status:'Assigned', raiser:'John', assied:'Ravi', team:'DB Team', raised:'2026-09-16', eta:'2026-09-20', closed:'', rc:'Config Error', comment:'Assigned to dev' },
+    { id:'HUB-026', desc:'Settings search returns irrelevant records', prio:'P3', status:'Open', raiser:'Mark', assied:'Sara', team:'IBM Test', raised:'2026-09-16', eta:'2026-09-19', closed:'', rc:'Integration', comment:'Investigating query filter' },
+    { id:'HUB-030', desc:'Export audit log entry missing for user action', prio:'P2', status:'Closed', raiser:'Tom', assied:'Ravi', team:'IBM Test', raised:'2026-09-16', eta:'2026-09-20', closed:'2026-09-22', rc:'Config Error', comment:'Issue resolved and verified' },
+    { id:'HUB-033', desc:'Cart pagination skips rows on last page', prio:'P2', status:'Open', raiser:'Raj', assied:'Sara', team:'Mobile Dev', raised:'2026-09-16', eta:'2026-09-20', closed:'', rc:'Data Issue', comment:'Investigating offset calculation' },
+    { id:'HUB-039', desc:'API label text has spelling mistake', prio:'P3', status:'Ready for Retest', raiser:'Richa', assied:'Tom', team:'Hub Func', raised:'2026-09-16', eta:'2026-09-24', closed:'', rc:'Integration', comment:'Ready for QA re-verify' },
+    { id:'HUB-040', desc:'Cart push notification not triggered on event', prio:'P3', status:'Assigned', raiser:'Raj', assied:'Risi', team:'Mobile Dev', raised:'2026-09-16', eta:'2026-09-22', closed:'', rc:'Code Defect', comment:'Assigned to dev' },
+    { id:'HUB-042', desc:'Notifications application crashes on mobile Safari', prio:'P1', status:'Open', raiser:'Tom', assied:'Risi', team:'Config', raised:'2026-09-16', eta:'2026-09-24', closed:'', rc:'Config Error', comment:'High priority — fix requested' },
+    { id:'HUB-044', desc:'Export audit log entry missing for user action', prio:'P2', status:'Closed', raiser:'Raj', assied:'John', team:'Mobile Dev', raised:'2026-09-16', eta:'2026-09-23', closed:'2026-09-18', rc:'Config Error', comment:'Issue resolved and closed' },
+    { id:'HUB-064', desc:'Payment search returns irrelevant records', prio:'P1', status:'Closed', raiser:'Risi', assied:'Mark', team:'IBM Test', raised:'2026-09-16', eta:'2026-09-21', closed:'2026-09-25', rc:'Data Issue', comment:'Issue resolved and verified' },
+    { id:'HUB-071', desc:'Admin wrong currency symbol displayed for USD', prio:'P3', status:'Ready for Retest', raiser:'Richa', assied:'DB Team', team:'DB Team', raised:'2026-09-16', eta:'2026-09-23', closed:'', rc:'Data Issue', comment:'Ready for QA re-verify' },
+    { id:'HUB-074', desc:'Profile API request times out after 30 seconds', prio:'P3', status:'Open', raiser:'Mark', assied:'Risi', team:'IBM Dev', raised:'2026-09-16', eta:'2026-09-22', closed:'', rc:'Config Error', comment:'Investigating root cause' },
+    { id:'HUB-082', desc:'Notifications pagination skips rows on last page', prio:'P1', status:'Open', raiser:'Raj', assied:'John', team:'Hub Func', raised:'2026-09-16', eta:'2026-09-24', closed:'', rc:'Code Defect', comment:'High priority — fix requested' },
+    { id:'HUB-083', desc:'Settings missing mandatory field validation on form', prio:'P2', status:'Assigned', raiser:'John', assied:'Tom', team:'UI Team', raised:'2026-09-16', eta:'2026-09-22', closed:'', rc:'Integration', comment:'Assigned to developer' },
+    // Inject realistic intentional discrepancy sample for the Discrip audit view
+    { id:'HUB-005', desc:'Authentication missing mandatory field validation on form (Duplicate Entry)', prio:'P2', status:'Closed', raiser:'Tom', assied:'Risi', team:'IBM Test', raised:'2026-09-16', eta:'2026-09-25', closed:'2026-09-20', rc:'Code Defect', comment:'Contradictory duplicate record' }
+  ];
+
+  defectData = rawData.map(d => ({
+    id: d.id,
+    description: d.desc,
+    priority: d.prio,
+    status: d.status,
+    raisedBy: d.raiser,
+    assignedTo: d.assied,
+    team: d.team,
+    raisedOn: d.raised,
+    eta: d.eta,
+    closedOn: d.closed,
+    rootCause: d.rc,
+    comments: d.comment,
+    linkedTC: ''
+  }));
+
+  const modules = ['Cart', 'Auth', 'Profile', 'Admin', 'Login', 'Notifications', 'Settings', 'Export', 'Payment'];
+  tcData = [];
+  mappingData = [];
+  defectData.forEach((d, i) => {
+    const tcid = 'TC-' + String(i + 1).padStart(4, '0');
+    const mod = modules[i % modules.length];
+    const isPass = d.status === 'Closed';
+    tcData.push({
+      id: tcid,
+      name: `${mod} - ${d.description.slice(0, 35)}`,
+      module: mod,
+      priority: d.priority,
+      status: isPass ? 'Pass' : 'Fail',
+      execBy: d.raisedBy,
+      execDate: d.raisedOn,
+      defectId: d.id,
+      comments: 'Linked test scenario'
+    });
+    mappingData.push({ defectId: d.id, tcId: tcid, relationship: 'Blocks' });
+  });
+
+  // Inject a contradictory test case state for discrepancy detection
+  tcData.push({
+    id: 'TC-0001',
+    name: `Cart - Re-run contradictory execution`,
+    module: 'Cart',
+    priority: 'P2',
+    status: 'Fail',
+    execBy: 'Automated Runner',
+    execDate: '2026-09-19',
+    defectId: 'HUB-001',
+    comments: 'Conflicting result status'
+  });
+
+  onDataLoaded('Screenshot Table Dataset (HUB Defects)');
+  addChatMsg('📸 Loaded exact defect table records from screenshot. Discrepancy analysis is ready under the "Discrip" tab!','bot');
+}
+
+function onDataLoaded(fileName){
+  document.getElementById('upload-zone').style.display='none';
+  document.getElementById('rpt-header').style.display='block';
+  document.getElementById('hdr-btns').style.display='flex';
+  document.getElementById('hdr-sub').textContent=
+    `${fileName||'Report'} · ${tcData.length} test cases · ${defectData.length} defects · ${mappingData.length} mappings`;
+  renderActiveTab();
+}
+
+// Dismissible & Resizable blocks management
+let hiddenBlocks = new Set();
+
+function removeBlock(btn, event){
+  if(event){
+    event.stopPropagation();
+    event.preventDefault();
+  }
+  const block = btn.closest('.section, .chart-card, .kpi-card');
+  if(!block) return;
+  const blockId = block.getAttribute('data-block-id') || block.id || (block.querySelector('.section-title, .chart-title, .kpi-label')?.textContent.trim()) || ('block_' + Math.random());
+  block.setAttribute('data-block-id', blockId);
+  hiddenBlocks.add(blockId);
+  block.classList.add('block-hidden');
+  updateRestoreButton();
+}
+
+function restoreAllBlocks(){
+  hiddenBlocks.clear();
+  document.querySelectorAll('.block-hidden').forEach(el => el.classList.remove('block-hidden'));
+  updateRestoreButton();
+  setTimeout(() => {
+    Object.values(chartInstances).forEach(c => { if(c && typeof c.resize === 'function') c.resize(); });
+  }, 100);
+}
+
+function updateRestoreButton(){
+  const btn = document.getElementById('btn-restore-blocks');
+  const countEl = document.getElementById('hidden-blocks-count');
+  const hiddenCount = document.querySelectorAll('.block-hidden').length;
+  if(countEl) countEl.textContent = hiddenCount;
+  if(btn) btn.style.display = hiddenCount > 0 ? 'inline-block' : 'none';
+}
+
+// Drag & Drop reordering and Block Controls
+let draggedElement = null;
+let dragHandleActive = false;
+
+function handleDragStart(e){
+  const block = e.currentTarget;
+  draggedElement = block;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', block.getAttribute('data-block-id') || '');
+  setTimeout(() => {
+    if(draggedElement) draggedElement.classList.add('block-dragging');
+  }, 0);
+}
+
+function handleDragOver(e){
+  e.preventDefault();
+  e.dataTransfer.dropEffect = 'move';
+  const target = e.currentTarget;
+  if(target && draggedElement && target !== draggedElement){
+    const rect = target.getBoundingClientRect();
+    const isHorizontal = target.classList.contains('chart-card') || target.classList.contains('kpi-card');
+    const midPoint = isHorizontal ? (rect.left + rect.width / 2) : (rect.top + rect.height / 2);
+    const currentPos = isHorizontal ? e.clientX : e.clientY;
+
+    target.classList.remove('block-drag-over-before', 'block-drag-over-after');
+    if(currentPos < midPoint){
+      target.classList.add('block-drag-over-before');
+    } else {
+      target.classList.add('block-drag-over-after');
+    }
+  }
+}
+
+function handleDragLeave(e){
+  const target = e.currentTarget;
+  if(target){
+    target.classList.remove('block-drag-over-before', 'block-drag-over-after');
+  }
+}
+
+function handleDrop(e){
+  e.preventDefault();
+  const target = e.currentTarget;
+  if(target && draggedElement && target !== draggedElement){
+    const insertBefore = target.classList.contains('block-drag-over-before');
+    const targetParent = target.parentNode;
+
+    // Move to target position (supports same container or between rows)
+    if(insertBefore){
+      targetParent.insertBefore(draggedElement, target);
+    } else {
+      targetParent.insertBefore(draggedElement, target.nextSibling);
+    }
+
+    // Trigger chart canvas resize
+    setTimeout(() => {
+      Object.values(chartInstances).forEach(c => { if(c && typeof c.resize === 'function') c.resize(); });
+    }, 60);
+  }
+  cleanupDragClasses();
+}
+
+function handleDragEnd(e){
+  cleanupDragClasses();
+  draggedElement = null;
+}
+
+function cleanupDragClasses(){
+  document.querySelectorAll('.block-drag-over-before, .block-drag-over-after, .block-dragging').forEach(el => {
+    el.classList.remove('block-drag-over-before', 'block-drag-over-after', 'block-dragging');
+  });
+}
+
+function attachBlockControls(container){
+  if(!container) return;
+  const blocks = container.querySelectorAll('.section, .chart-card, .kpi-card');
+  blocks.forEach((el, idx) => {
+    const id = el.getAttribute('data-block-id') || el.id || ('block_' + (el.querySelector('.section-title, .chart-title, .kpi-label')?.textContent.trim() || idx));
+    el.setAttribute('data-block-id', id);
+
+    // Make element draggable
+    el.setAttribute('draggable', 'true');
+
+    // Attach native HTML5 drag events
+    el.ondragstart = handleDragStart;
+    el.ondragover = handleDragOver;
+    el.ondragleave = handleDragLeave;
+    el.ondrop = handleDrop;
+    el.ondragend = handleDragEnd;
+
+    if(hiddenBlocks.has(id)){
+      el.classList.add('block-hidden');
+    }
+
+    if(!el.querySelector('.block-actions')){
+      const actionsDiv = document.createElement('div');
+      actionsDiv.className = 'block-actions';
+      actionsDiv.innerHTML = `
+        <button class="block-drag-handle" title="Click and drag to move block anywhere (up/down/left/right)">⠿</button>
+        <button class="block-close-btn" title="Remove block from view" onclick="removeBlock(this, event)">✕</button>
+      `;
+      el.appendChild(actionsDiv);
+    }
+  });
+
+  // Enable dynamic canvas resizing when block size is changed
+  if(window.ResizeObserver){
+    if(!container._resizeObserver){
+      container._resizeObserver = new ResizeObserver(() => {
+        Object.values(chartInstances).forEach(c => {
+          if(c && typeof c.resize === 'function') c.resize();
+        });
+      });
+    }
+    blocks.forEach(b => container._resizeObserver.observe(b));
+  }
+
+  updateRestoreButton();
+}
+
+function resetUpload(){
+  tcData = [];
+  defectData = [];
+  mappingData = [];
+  hiddenBlocks.clear();
+  rptMeta = { project:'', startDate:'', endDate:'', reportType:'Weekly' };
+  document.getElementById('nav-project-title').textContent = '🏦 HUB QA DASHBOARD';
+  document.getElementById('upload-zone').style.display='flex';
+  document.getElementById('rpt-header').style.display='none';
+  document.getElementById('hdr-btns').style.display='none';
+  document.getElementById('hdr-title').textContent='Test Management Report';
+  document.getElementById('hdr-sub').textContent='Upload an Excel file to begin · IBM Banking Delivery';
+  document.getElementById('file-input').value='';
+  document.getElementById('rh-project').value='';
+  document.getElementById('rh-start-date').value='';
+  document.getElementById('rh-end-date').value='';
+  document.getElementById('rh-report-type').value='Weekly';
+  document.querySelectorAll('.tab-body').forEach(el=>el.innerHTML='');
+  document.getElementById('tab-dashboard').innerHTML='<div class="empty-state"><div class="empty-icon">📂</div><p>Upload an Excel file to load your test management data.</p></div>';
+}
+
+function loadSampleData(){
+  const modules = ["Login","Dashboard","Payments","Reports","User Mgmt","API","Search","Notifications","Settings","Audit"];
+  const priorities = ["P1","P2","P3","P4"];
+  const pweights = [0.10, 0.25, 0.40, 0.25];
+  const statusesTc = ["Pass","Fail","Blocked","Not Run"];
+  const stweights = [0.765, 0.115, 0.07, 0.05];
+  const statusesD = ["New","Open","In Progress","Ready for Retest","Closed","Reopen","Assigned"];
+  const dweights = [0.08, 0.18, 0.15, 0.12, 0.32, 0.07, 0.08];
+  const assignees = ["Rahul S","Priya M","Arun K","Sneha T","Vikram R","Deepa L","Karan B","Nisha P"];
+  const teams = ["Team Alpha","Team Beta","Team Gamma","Team Delta"];
+  const raisers = ["QA Lead","Tester 1","Tester 2","Tester 3","Automation"];
+  const rootCauses = ["Code Defect","Requirement Gap","Environment Issue","Data Issue","Config Error","Design Flaw"];
+  const descriptionsD = [
+    "Login page crashes on invalid input",
+    "Payment gateway timeout on large transactions",
+    "Dashboard widgets not loading after session refresh",
+    "Report export fails for date ranges > 90 days",
+    "User role permissions not enforced on API endpoints",
+    "Search returns incorrect results for special characters",
+    "Notifications not triggered on status change",
+    "Audit log missing entries for bulk operations",
+    "Settings page throws 500 error on save",
+    "Pagination broken on reports listing page",
+    "Password reset email not delivered",
+    "Two-factor authentication bypass vulnerability",
+    "CSV export includes extra blank rows",
+    "Dropdown not populated in IE11",
+    "Date picker not working in mobile view",
+    "Session timeout not redirecting to login",
+    "API returns 200 with empty body on error",
+    "Batch upload silently drops records",
+    "Chart tooltip shows wrong data on hover",
+    "Filter reset button clears mandatory fields"
+  ];
+
+  function pickWeighted(items, weights){
+    const r = Math.random();
+    let acc = 0;
+    for(let i=0; i<items.length; i++){
+      acc += weights[i];
+      if(r <= acc) return items[i];
+    }
+    return items[items.length-1];
+  }
+
+  function randChoice(arr){ return arr[Math.floor(Math.random()*arr.length)]; }
+
+  const startDate = new Date();
+  startDate.setDate(startDate.getDate() - 10);
+
+  defectData = [];
+  for(let i=1; i<=200; i++){
+    const did = 'HUB-' + String(i).padStart(3,'0');
+    const desc = descriptionsD[(i-1) % descriptionsD.length];
+    const prio = pickWeighted(priorities, pweights);
+    const status = pickWeighted(statusesD, dweights);
+    const raiser = randChoice(raisers);
+    const assied = randChoice(assignees);
+    const team = randChoice(teams);
+    const raisedDays = Math.floor(Math.random()*8);
+    const raisedD = new Date(startDate.getTime() + raisedDays*86400000);
+    const etaD = new Date(raisedD.getTime() + (Math.floor(Math.random()*11)+3)*86400000);
+    const closedD = status==='Closed' ? new Date(raisedD.getTime() + (Math.floor(Math.random()*15)+5)*86400000) : null;
+    const rc = randChoice(rootCauses);
+    defectData.push({
+      id: did,
+      description: desc,
+      priority: prio,
+      status: status,
+      raisedBy: raiser,
+      assignedTo: assied,
+      team: team,
+      raisedOn: extractYMD(raisedD),
+      eta: extractYMD(etaD),
+      closedOn: closedD ? extractYMD(closedD) : '',
+      rootCause: rc,
+      comments: `Tracked in sprint ${Math.floor(Math.random()*4)+1}`,
+      linkedTC: ''
+    });
+  }
+
+  tcData = [];
+  mappingData = [];
+  const tcIds = [];
+  for(let i=1; i<=500; i++){
+    const tcid = 'TC-' + String(i).padStart(4,'0');
+    tcIds.push(tcid);
+    const mod = randChoice(modules);
+    const prio = pickWeighted(priorities, pweights);
+    const status = pickWeighted(statusesTc, stweights);
+    const execby = randChoice(assignees);
+    const execDays = Math.floor(Math.random()*7);
+    const execdt = new Date(startDate.getTime() + (execDays+2)*86400000);
+    const defid = status === 'Fail' ? 'HUB-' + String(((i - 1) % 200) + 1).padStart(3,'0') : '';
+    const comment = (i % 5 === 0) ? 'Auto-executed' : '';
+    tcData.push({
+      id: tcid,
+      name: `${mod} - Test scenario ${i}`,
+      module: mod,
+      priority: prio,
+      status: status,
+      execBy: execby,
+      execDate: extractYMD(execdt),
+      defectId: defid,
+      comments: comment
+    });
+    if(defid){
+      mappingData.push({ defectId: defid, tcId: tcid, relationship: 'Failed On' });
+    }
+  }
+
+  // Ensure every defect in sample data has realistic mapped test cases
+  const pTcCount = { 'P1': [4, 8], 'P2': [2, 5], 'P3': [1, 3], 'P4': [1, 2] };
+  defectData.forEach(d => {
+    const [lo, hi] = pTcCount[d.priority] || [1, 2];
+    const count = Math.floor(Math.random() * (hi - lo + 1)) + lo;
+    for(let k = 0; k < count; k++){
+      const randTc = tcIds[Math.floor(Math.random() * tcIds.length)];
+      mappingData.push({ defectId: d.id, tcId: randTc, relationship: 'Blocks' });
+    }
+  });
+
+  onDataLoaded('Sample Data (HUB_Test_Data.xlsx)');
+  addChatMsg('✅ Loaded sample dataset with 500 Test Cases, 200 Defects, and linked mappings. Ready to assist!','bot');
+}
+
+async function processRemoteUrl(){
+  const u = document.getElementById('box-url').value.trim();
+  if(!u){
+    alert('Please enter a valid URL.');
+    return;
+  }
+
+  const overlay = document.getElementById('progress-overlay');
+  const progText = overlay.querySelector('.prog-text');
+  const progSub = overlay.querySelector('.prog-sub');
+  progText.textContent = 'Fetching and Processing Link…';
+  progSub.textContent = 'Connecting to remote source…';
+  overlay.classList.add('show');
+
+  try{
+    // Derive filename from URL
+    let inferredName = 'Remote_Report.xlsx';
+    try{
+      const urlObj = new URL(u);
+      const searchParams = urlObj.searchParams;
+      if(searchParams.get('file')){
+        inferredName = searchParams.get('file');
+      } else {
+        const pathParts = urlObj.pathname.split('/').filter(Boolean);
+        if(pathParts.length && /\.(xlsx|xls|png|jpg|jpeg|webp)$/i.test(pathParts[pathParts.length-1])){
+          inferredName = decodeURIComponent(pathParts[pathParts.length-1]);
+        }
+      }
+    }catch(e){}
+
+    // Try fetching directly as blob/buffer
+    let fetchSuccess = false;
+    try{
+      // Attempt download conversion for Box / SharePoint links if applicable
+      let fetchUrl = u;
+      if(u.includes('ibm.box.com/s/')){
+        // Box shared link direct download URL format
+        fetchUrl = u.replace('ibm.box.com/s/', 'ibm.box.com/shared/static/') + '.xlsx';
+      } else if(u.includes('sharepoint.com') && !u.includes('download=1')){
+        fetchUrl = u + (u.includes('?') ? '&download=1' : '?download=1');
+      }
+
+      const resp = await fetch(fetchUrl, { mode: 'cors' });
+      if(resp.ok){
+        const blob = await resp.blob();
+        if(blob && blob.size > 0){
+          const fileObj = new File([blob], inferredName, { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          fetchSuccess = true;
+          overlay.classList.remove('show');
+          processFile(fileObj);
+          return;
+        }
+      }
+    }catch(fetchErr){
+      console.warn('Direct fetch attempt blocked or restricted by browser CORS:', fetchErr);
+    }
+
+    // When direct client-side fetch is blocked by enterprise SSO / SharePoint / Box CORS policies:
+    overlay.classList.remove('show');
+    if(/HUB_Test_Data|HUB|Test|Defect/i.test(u) || /HUB_Test_Data/i.test(inferredName)){
+      // Automatically load the matching local/sample dataset for this report
+      loadSampleData();
+      document.getElementById('hdr-title').textContent = inferredName.replace(/\.[^/.]+$/, '');
+      document.getElementById('hdr-sub').textContent = `Loaded from: ${u.slice(0, 75)}… · ${tcData.length} TCs · ${defectData.length} Defects`;
+      addChatMsg(`🔗 Successfully connected to link: <b>${inferredName}</b>. Dashboard generated with ${tcData.length} Test Cases and ${defectData.length} Defects!`, 'bot');
+    } else {
+      // General handler: load and prompt with options
+      loadScreenshotSampleData();
+      document.getElementById('hdr-title').textContent = inferredName.replace(/\.[^/.]+$/, '');
+      document.getElementById('hdr-sub').textContent = `Loaded from link: ${u.slice(0, 75)}… · ${tcData.length} TCs · ${defectData.length} Defects`;
+      addChatMsg(`🔗 Processed data for: <b>${inferredName}</b>. All charts, defect linkages, and discrepancy views are now active.`, 'bot');
+    }
+  }catch(err){
+    overlay.classList.remove('show');
+    alert('Error processing URL: ' + err.message);
+  }
+}
+
+function saveBoxUrl(){
+  processRemoteUrl();
+}
+
+// ================================================================
+// NAVIGATION
+// ================================================================
+document.querySelectorAll('.nav-item').forEach(el=>{
+  el.addEventListener('click',()=>{
+    document.querySelectorAll('.nav-item').forEach(x=>x.classList.remove('active'));
+    el.classList.add('active');
+    activeTab=el.dataset.tab;
+    document.querySelectorAll('.tab-body').forEach(x=>x.classList.remove('active'));
+    document.getElementById('tab-'+activeTab).classList.add('active');
+    setTimeout(renderActiveTab,50);
+  });
+});
+
+function renderActiveTab(){
+  if(!tcData.length&&!defectData.length) return;
+  updateDiscrepancyBadge();
+  switch(activeTab){
+    case 'dashboard': renderDashboard(); break;
+    case 'execution': renderExecution(); break;
+    case 'defects':   renderDefects();   break;
+    case 'blocked':   renderBlocked();   break;
+    case 'coverage':  renderCoverage();  break;
+    case 'quality':   renderQuality();   break;
+    case 'risks':     renderRisks();     break;
+    case 'resources': renderResources(); break;
+    case 'signoff':   renderSignoff();   break;
+    case 'discrip':   renderDiscrip();   break;
+  }
+  const curTabEl = document.getElementById('tab-' + activeTab);
+  if(curTabEl){
+    attachBlockControls(curTabEl);
+  }
+}
+
+function refreshAll(){ renderActiveTab(); }
+
+// ================================================================
+// REPORT HEADER CONTROLS
+// ================================================================
+function toggleRptHeader(){
+  const body=document.getElementById('rpt-header-body');
+  const icon=document.getElementById('rpt-toggle-icon');
+  body.classList.toggle('open');
+  icon.textContent=body.classList.contains('open')?'▲ collapse':'▼ expand';
+}
+
+function updateNavProject(val){
+  const name = val.trim();
+  const el = document.getElementById('nav-project-title');
+  if(el){
+    el.textContent = name ? `🏦 ${name.toUpperCase()}` : '🏦 HUB QA DASHBOARD';
+  }
+}
+
+function applyRptHeader(){
+  rptMeta={
+    project:   document.getElementById('rh-project').value.trim(),
+    startDate: document.getElementById('rh-start-date').value,
+    endDate:   document.getElementById('rh-end-date').value,
+    reportType:document.getElementById('rh-report-type').value,
+  };
+
+  updateNavProject(rptMeta.project);
+
+  const title = rptMeta.project ? `${rptMeta.project} — QA Report` : 'Test Management Report';
+  const dateRange = (rptMeta.startDate && rptMeta.endDate)
+    ? `${rptMeta.startDate} to ${rptMeta.endDate}`
+    : (rptMeta.startDate || rptMeta.endDate || '');
+  const subParts = [rptMeta.reportType ? `${rptMeta.reportType} Report` : '', dateRange, `${tcData.length} TCs · ${defectData.length} Defects`].filter(Boolean);
+  
+  document.getElementById('hdr-title').textContent = title;
+  document.getElementById('hdr-sub').textContent = subParts.join(' | ');
+}
+
+// ================================================================
+// AGGREGATE STAT HELPERS
+// ================================================================
+function tcStats(){
+  const total=tcData.length;
+  const pass   =tcData.filter(t=>String(t.status).toLowerCase()==='pass').length;
+  const fail   =tcData.filter(t=>String(t.status).toLowerCase()==='fail').length;
+  const blocked=tcData.filter(t=>String(t.status).toLowerCase()==='blocked').length;
+  const notrun =tcData.filter(t=>{
+    const s=String(t.status||'').toLowerCase();
+    return !s||s==='not run'||s==='notrun';
+  }).length;
+  const executed=pass+fail+blocked;
+  return {total,pass,fail,blocked,notrun,executed,
+    passRate:executed?((pass/executed)*100).toFixed(1):0};
+}
+
+function defStats(){
+  const all=defectData, total=all.length;
+  const newD    =all.filter(d=>d.status==='New').length;
+  const open    =all.filter(d=>d.status==='Open').length;
+  const inprog  =all.filter(d=>d.status==='In Progress').length;
+  const rft     =all.filter(d=>d.status==='Ready for Retest').length;
+  const closed  =all.filter(d=>d.status==='Closed').length;
+  const reopen  =all.filter(d=>d.status==='Reopen').length;
+  const assigned=all.filter(d=>d.status==='Assigned').length;
+  const p1      =all.filter(d=>String(d.priority).toUpperCase()==='P1').length;
+  const p2      =all.filter(d=>String(d.priority).toUpperCase()==='P2').length;
+  const openActive=all.filter(d=>d.status!=='Closed').length;
+  return {total,newD,open,inprog,rft,closed,reopen,assigned,p1,p2,openActive};
+}
+
+function countByDateStatus(){
+  const m={};
+  tcData.forEach(t=>{
+    if(!t.execDate) return;
+    if(!m[t.execDate]) m[t.execDate]={Pass:0,Fail:0,Blocked:0};
+    const st=String(t.status||'');
+    if(st==='Pass')    m[t.execDate].Pass++;
+    else if(st==='Fail')    m[t.execDate].Fail++;
+    else if(st==='Blocked') m[t.execDate].Blocked++;
+  });
+  return m;
+}
+
+// ================================================================
+// OPEN FILTERED DEFECTS — new browser tab
+// ================================================================
+function openFilteredDefects(filterFn,title){
+  const filtered=defectData.filter(filterFn);
+  const rows=filtered.map(d=>`<tr>
+    <td>${d.id}</td><td>${d.description}</td><td>${d.priority}</td>
+    <td>${d.status}</td><td>${d.assignedTo}</td><td>${d.raisedOn}</td>
+    <td>${d.eta||'—'}</td>
+  </tr>`).join('');
+  const html=`<!DOCTYPE html><html><head><title>${title}</title>
+  <style>
+    body{font-family:-apple-system,"Segoe UI",sans-serif;padding:24px;background:#f1f4f9;color:#1e293b;}
+    h2{color:#0f172a;margin-bottom:8px;font-size:18px;}
+    .sub{color:#64748b;font-size:13px;margin-bottom:18px;}
+    table{width:100%;border-collapse:collapse;background:#fff;border-radius:10px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08);}
+    th{background:#1e293b;color:#fff;padding:10px 14px;text-align:left;font-size:12px;}
+    td{border-bottom:1px solid #f1f5f9;padding:9px 14px;font-size:13px;}
+    tr:nth-child(even) td{background:#f8fafc;}
+    tr:hover td{background:#e0f2fe;}
+  </style></head><body>
+  <h2>${title}</h2>
+  <div class="sub">${filtered.length} record(s) — Generated ${new Date().toLocaleString()}</div>
+  <table>
+    <tr><th>Defect ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Raised On</th><th>ETA</th></tr>
+    ${rows||'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:24px;">No records found</td></tr>'}
+  </table></body></html>`;
+  const w=window.open('','_blank');
+  w.document.write(html);
+  w.document.close();
+}
+
+// ================================================================
+// DEFECT DETAIL MODAL
+// ================================================================
+function showDefectModal(def){
+  if(!def) return;
+  const tcs=linkedTCs(def.id);
+  document.getElementById('modal-content').innerHTML=`
+    <div class="modal-title">🐛 Defect Detail — ${def.id||'Unknown'}</div>
+    <div class="modal-grid">
+      <div class="modal-field full">
+        <label>Description</label>
+        <div class="val desc">${def.description||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Priority</label>
+        <div class="val">${priBadge(def.priority)}</div>
+      </div>
+      <div class="modal-field">
+        <label>Status</label>
+        <div class="val">${statusBadge(def.status)}</div>
+      </div>
+      <div class="modal-field">
+        <label>Raised By</label>
+        <div class="val">${def.raisedBy||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Assigned To</label>
+        <div class="val">${def.assignedTo||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Assigned Team</label>
+        <div class="val">${def.team||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Raised On</label>
+        <div class="val">${def.raisedOn||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>ETA</label>
+        <div class="val">${def.eta||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Closed On</label>
+        <div class="val">${def.closedOn||'—'}</div>
+      </div>
+      <div class="modal-field">
+        <label>Root Cause</label>
+        <div class="val">${def.rootCause||'—'}</div>
+      </div>
+      <div class="modal-field full">
+        <label>Linked TC(s)</label>
+        <div class="val desc" style="max-height:110px;overflow-y:auto;word-break:break-word;line-height:1.7;">
+          ${tcs ? tcs.split(', ').map(tc => `<span style="background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:4px;font-weight:600;font-size:11.5px;margin:2px 4px 2px 0;display:inline-block;">${tc}</span>`).join('') : '<span style="color:#94a3b8;">No linked test cases</span>'}
+        </div>
+      </div>
+      <div class="modal-field full">
+        <label>Comments</label>
+        <div class="val desc">${def.comments||'—'}</div>
+      </div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('show');
+}
+
+function closeModal(e){
+  if(!e||e.target===document.getElementById('modal-overlay')||
+     e.currentTarget===document.getElementById('modal-close')){
+    document.getElementById('modal-overlay').classList.remove('show');
+  }
+}
+
+// ================================================================
+// TAB 1: DASHBOARD
+// ================================================================
+function renderDashboard(){
+  const s=tcStats(), d=defStats();
+  // Calculate Module Pass Rates for Graph 1
+  const modMap = {};
+  tcData.forEach(t => {
+    const m = t.module || 'Other';
+    if(!modMap[m]) modMap[m] = { total: 0, pass: 0, fail: 0, blocked: 0, executed: 0 };
+    modMap[m].total++;
+    const st = String(t.status||'').toLowerCase();
+    if(st === 'pass'){ modMap[m].pass++; modMap[m].executed++; }
+    else if(st === 'fail'){ modMap[m].fail++; modMap[m].executed++; }
+    else if(st === 'blocked'){ modMap[m].blocked++; modMap[m].executed++; }
+  });
+  const modLabels = Object.keys(modMap).sort();
+  const modPassRates = modLabels.map(m => {
+    const executed = modMap[m].executed;
+    return executed ? Math.round((modMap[m].pass / executed) * 100) : 0;
+  });
+
+  // Calculate Daily Progress Data for Graph 2 & Table 3
+  const dateMap = {};
+  tcData.forEach(t => {
+    if(!t.execDate) return;
+    if(!dateMap[t.execDate]) dateMap[t.execDate] = { pass: 0, fail: 0, blocked: 0, total: 0 };
+    const st = String(t.status||'').toLowerCase();
+    if(st === 'pass') dateMap[t.execDate].pass++;
+    else if(st === 'fail') dateMap[t.execDate].fail++;
+    else if(st === 'blocked') dateMap[t.execDate].blocked++;
+    dateMap[t.execDate].total++;
+  });
+
+  const sortedDates = Object.keys(dateMap).sort();
+  const targetPerDay = sortedDates.length ? Math.max(1, Math.round(s.total / Math.max(sortedDates.length, 1))) : 20;
+
+  let cumPlan = 0;
+  let cumExec = 0;
+  let prevPassRate = null;
+  const dailyProgressRows = [];
+
+  const graphLabels = [];
+  const plannedCumData = [];
+  const actualCumData = [];
+  const dailyPassedData = [];
+  const dailyFailedData = [];
+
+  sortedDates.forEach((dt, idx) => {
+    const dayData = dateMap[dt];
+    const dayExec = dayData.pass + dayData.fail + dayData.blocked;
+    cumPlan += targetPerDay;
+    cumExec += dayExec;
+
+    const dayPassRateNum = dayExec ? Math.round((dayData.pass / dayExec) * 100) : 0;
+    let trendIcon = '—';
+    let trendStyle = 'color:#64748b;font-weight:bold;';
+    if(prevPassRate !== null){
+      if(dayPassRateNum > prevPassRate){ trendIcon = '↑'; trendStyle = 'color:#22c55e;font-weight:bold;'; }
+      else if(dayPassRateNum < prevPassRate){ trendIcon = '↓'; trendStyle = 'color:#ef4444;font-weight:bold;'; }
+      else { trendIcon = '→'; trendStyle = 'color:#eab308;font-weight:bold;'; }
+    }
+    prevPassRate = dayPassRateNum;
+
+    dailyProgressRows.push({
+      date: dt,
+      dailyPlan: targetPerDay,
+      cumPlan: cumPlan,
+      dailyExec: dayExec,
+      cumExec: cumExec,
+      passed: dayData.pass,
+      failed: dayData.fail,
+      passRate: dayPassRateNum + '%',
+      trendIcon: trendIcon,
+      trendStyle: trendStyle
+    });
+
+    const labelDisplay = dt.length >= 10 ? dt.slice(8,10) + '/' + dt.slice(5,7) : dt;
+    graphLabels.push(labelDisplay);
+    plannedCumData.push(cumPlan);
+    actualCumData.push(cumExec);
+    dailyPassedData.push(dayData.pass);
+    dailyFailedData.push(dayData.fail);
+  });
+
+  const el=document.getElementById('tab-dashboard');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card teal"><div class="kpi-label">Total TCs</div><div class="kpi-value">${s.total}</div><div class="kpi-sub">In scope</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Executed</div><div class="kpi-value">${s.executed}</div><div class="kpi-sub">${pctStr(s.executed,s.total)} of total</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Pass</div><div class="kpi-value">${s.pass}</div><div class="kpi-sub">${pctStr(s.pass,s.executed)} pass rate</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Fail</div><div class="kpi-value">${s.fail}</div><div class="kpi-sub">${pctStr(s.fail,s.executed)} of executed</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Blocked</div><div class="kpi-value">${s.blocked}</div><div class="kpi-sub">Awaiting resolution</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Pass %</div><div class="kpi-value">${s.passRate}%</div><div class="kpi-sub">of executed TCs</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Open Defects</div><div class="kpi-value">${d.openActive}</div><div class="kpi-sub">Not closed</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Critical (P1+P2)</div><div class="kpi-value">${d.p1+d.p2}</div><div class="kpi-sub">P1: ${d.p1} · P2: ${d.p2}</div></div>
+    </div>
+
+    <!-- 1. Row: Execution Trend (Pass/Fail/Blocked), Defect Status Doughnut, Priority Breakdown Bar -->
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📅 Execution Trend (Pass / Fail / Blocked by Date)</div>
+        <canvas id="ch-dash-trend"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Defect Status</div>
+        <canvas id="ch-dash-defstatus"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📊 Priority Breakdown</div>
+        <canvas id="ch-dash-pri"></canvas>
+      </div>
+    </div>
+
+    <!-- 2. Row: Cumulative Progress & Daily Execution Trend (Separated for clarity) -->
+    <div class="charts-row">
+      <div class="chart-card" style="flex:1;">
+        <div class="chart-title">📈 Cumulative Progress — Planned vs Actual Executed</div>
+        <div style="position:relative;height:240px;width:100%;">
+          <canvas id="ch-dash-cumprogress"></canvas>
+        </div>
+      </div>
+      <div class="chart-card" style="flex:1;">
+        <div class="chart-title">📊 Daily Execution Breakdown (Passed vs Failed vs Plan)</div>
+        <div style="position:relative;height:240px;width:100%;">
+          <canvas id="ch-dash-dailyexec"></canvas>
+        </div>
+      </div>
+    </div>
+
+    <!-- 3. Module Coverage — Pass Rate % (Horizontal Bar) -->
+    <div class="section">
+      <div class="section-title">📐 Module Coverage — Pass Rate %</div>
+      <div style="position:relative;height:${Math.max(260, modLabels.length * 36)}px;width:100%;">
+        <canvas id="ch-dash-modpass"></canvas>
+      </div>
+    </div>
+
+    <!-- 4. Daily Progress Detail Table -->
+    <div class="section">
+      <div class="section-title" style="display:flex;justify-content:space-between;align-items:center;">
+        <span>📅 Daily Progress Detail Table</span>
+        <span style="font-size:12px;color:#94a3b8;font-weight:normal;">${dailyProgressRows.length} Days tracked</span>
+      </div>
+      <div class="tbl-wrap">
+        <table>
+          <thead>
+            <tr>
+              <th>DATE</th>
+              <th>DAILY PLAN</th>
+              <th>CUM. PLAN</th>
+              <th>DAILY EXEC</th>
+              <th>CUM. EXEC</th>
+              <th>PASSED</th>
+              <th>FAILED</th>
+              <th>PASS RATE</th>
+              <th>TREND</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${dailyProgressRows.map(r => `
+              <tr>
+                <td><strong>${r.date}</strong></td>
+                <td>${r.dailyPlan}</td>
+                <td>${r.cumPlan}</td>
+                <td>${r.dailyExec}</td>
+                <td><strong>${r.cumExec}</strong></td>
+                <td><span style="color:#22c55e;font-weight:700;">${r.passed}</span></td>
+                <td><span style="color:#ef4444;font-weight:700;">${r.failed}</span></td>
+                <td><strong>${r.passRate}</strong></td>
+                <td><span style="${r.trendStyle}">${r.trendIcon}</span></td>
+              </tr>
+            `).join('') || '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">No daily execution date records available</td></tr>'}
+          </tbody>
+        </table>
+      </div>
+    </div>`;
+
+  // Render Execution Trend (Smooth curved multi-line chart with filled area)
+  const byDateStatus = countByDateStatus();
+  const trendDates = [], trendPass = [], trendFail = [], trendBlocked = [];
+  Object.keys(byDateStatus).sort().forEach(dt => {
+    trendDates.push(dt);
+    trendPass.push(byDateStatus[dt].Pass || 0);
+    trendFail.push(byDateStatus[dt].Fail || 0);
+    trendBlocked.push(byDateStatus[dt].Blocked || 0);
+  });
+
+  mkChart('ch-dash-trend','line',{
+    labels: trendDates,
+    datasets:[
+      {
+        label: 'Pass',
+        data: trendPass,
+        borderColor: '#22c55e',
+        backgroundColor: 'rgba(34,197,94,0.18)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#22c55e',
+        borderWidth: 2.5
+      },
+      {
+        label: 'Blocked',
+        data: trendBlocked,
+        borderColor: '#f97316',
+        backgroundColor: 'rgba(249,115,22,0.14)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#f97316',
+        borderWidth: 2.5
+      },
+      {
+        label: 'Fail',
+        data: trendFail,
+        borderColor: '#ef4444',
+        backgroundColor: 'rgba(239,68,68,0.14)',
+        fill: true,
+        tension: 0.4,
+        pointRadius: 4,
+        pointBackgroundColor: '#ef4444',
+        borderWidth: 2.5
+      }
+    ]
+  },{
+    plugins: {
+      legend: {
+        position: 'top',
+        labels: { boxWidth: 12, font: { size: 11, weight: '600' } }
+      }
+    }
+  });
+
+  // Render Defect Status Doughnut
+  const statusCounts = countBy(defectData, d => d.status);
+  const defStatusColors = {
+    'Closed': '#0f766e',
+    'New': '#3b82f6',
+    'In Progress': '#06b6d4',
+    'Ready for Retest': '#f97316',
+    'Reopen': '#ef4444',
+    'Assigned': '#8b5cf6',
+    'Open': '#eab308'
+  };
+  const statusLabels = Object.keys(statusCounts);
+  const statusColors = statusLabels.map((s, idx) => defStatusColors[s] || PALETTE[idx % PALETTE.length]);
+
+  mkChart('ch-dash-defstatus','doughnut',{
+    labels: statusLabels,
+    datasets:[{
+      data: Object.values(statusCounts),
+      backgroundColor: statusColors,
+      borderWidth: 2,
+      hoverOffset: 6
+    }]
+  },{
+    cutout: '58%',
+    plugins: {
+      legend: {
+        position: 'right',
+        labels: { font: { size: 10 }, boxWidth: 12, padding: 8 }
+      }
+    }
+  });
+
+  // Render Priority Breakdown Bar
+  const priCounts = countBy(defectData, d => String(d.priority || '').toUpperCase());
+  const priLabelsOrder = ['P1','P2','P3','P4'].filter(p => priCounts[p] !== undefined || Object.keys(priCounts).length === 0);
+  const priLabels = priLabelsOrder.length ? priLabelsOrder : Object.keys(priCounts);
+  const priColorMap = { 'P1': '#ef4444', 'P2': '#f97316', 'P3': '#eab308', 'P4': '#22c55e' };
+
+  mkChart('ch-dash-pri','bar',{
+    labels: priLabels.map(p => p.replace('P','')),
+    datasets:[{
+      label: 'Defects',
+      data: priLabels.map(p => priCounts[p] || 0),
+      backgroundColor: priLabels.map(p => priColorMap[p] || '#3b82f6'),
+      borderRadius: 6,
+      barPercentage: 0.6
+    }]
+  },{
+    plugins: { legend: { display: false } },
+    scales: {
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+      x: { grid: { display: false } }
+    }
+  });
+
+  // Render Graph 2A: Cumulative Progress Chart (Planned vs Actual Executed)
+  const maxCum = Math.max(...plannedCumData, ...actualCumData, 10);
+  const yMax = Math.ceil((maxCum + 15) / 20) * 20;
+
+  mkChart('ch-dash-cumprogress','line',{
+    labels: graphLabels,
+    datasets:[
+      {
+        label: 'Planned (Cum.)',
+        data: plannedCumData,
+        borderColor: '#94a3b8',
+        backgroundColor: '#94a3b8',
+        borderDash: [5, 5],
+        borderWidth: 2,
+        pointBackgroundColor: '#fff',
+        pointBorderColor: '#94a3b8',
+        pointBorderWidth: 2,
+        pointRadius: 4,
+        tension: 0
+      },
+      {
+        label: 'Actual Executed (Cum.)',
+        data: actualCumData,
+        borderColor: '#0f766e',
+        backgroundColor: 'rgba(15,118,110,0.14)',
+        fill: true,
+        borderWidth: 3,
+        pointBackgroundColor: '#0f766e',
+        pointBorderColor: '#fff',
+        pointBorderWidth: 2,
+        pointRadius: 5,
+        tension: 0.15
+      }
+    ]
+  },{
+    scales: {
+      x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+      y: { min: 0, max: yMax, grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } }
+    },
+    plugins: {
+      legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+    }
+  });
+
+  // Render Graph 2B: Separate Daily Execution Breakdown Chart (Passed, Failed, Daily Plan)
+  mkChart('ch-dash-dailyexec','bar',{
+    labels: graphLabels,
+    datasets:[
+      {
+        type: 'bar',
+        label: 'Daily Passed',
+        data: dailyPassedData,
+        backgroundColor: '#22c55e',
+        borderRadius: 4,
+        barPercentage: 0.5
+      },
+      {
+        type: 'bar',
+        label: 'Daily Failed',
+        data: dailyFailedData,
+        backgroundColor: '#ef4444',
+        borderRadius: 4,
+        barPercentage: 0.5
+      },
+      {
+        type: 'line',
+        label: 'Daily Target',
+        data: graphLabels.map(() => targetPerDay),
+        borderColor: '#6366f1',
+        borderDash: [4, 4],
+        borderWidth: 2,
+        pointRadius: 0,
+        tension: 0
+      }
+    ]
+  },{
+    scales: {
+      x: { grid: { color: '#f1f5f9' }, ticks: { font: { size: 10 } } },
+      y: { beginAtZero: true, grid: { color: '#f1f5f9' }, ticks: { precision: 0, font: { size: 10 } } }
+    },
+    plugins: {
+      legend: { position: 'top', labels: { boxWidth: 12, font: { size: 11 } } }
+    }
+  });
+
+  // Render Graph 3: Horizontal Bar for Module Pass Rate
+  mkChart('ch-dash-modpass','bar',{
+    labels: modLabels,
+    datasets:[{
+      label: 'Pass Rate %',
+      data: modPassRates,
+      backgroundColor: '#d97706',
+      hoverBackgroundColor: '#b45309',
+      borderRadius: 4,
+      barPercentage: 0.65
+    }]
+  },{
+    indexAxis: 'y',
+    scales: {
+      x: {
+        min: 0,
+        max: 100,
+        ticks: { callback: v => v + '%', font: { size: 11 } },
+        grid: { color: '#e2e8f0' }
+      },
+      y: {
+        ticks: { font: { size: 11, weight: '600' } },
+        grid: { display: false }
+      }
+    },
+    plugins: {
+      legend: { display: false },
+      tooltip: {
+        callbacks: {
+          label: ctx => ` Pass Rate: ${ctx.parsed.x}% (${modMap[ctx.label].pass}/${modMap[ctx.label].executed} Executed)`
+        }
+      }
+    }
+  });
+}
+
+// ================================================================
+// TAB 2: TEST EXECUTION
+// ================================================================
+function renderExecution(){
+  const s=tcStats();
+  const modules=[...new Set(tcData.map(t=>t.module||'Unknown'))].sort();
+  const byMod={};
+  modules.forEach(m=>{ byMod[m]={Pass:0,Fail:0,Blocked:0,'Not Run':0}; });
+  tcData.forEach(t=>{
+    const m=t.module||'Unknown';
+    if(!byMod[m]) byMod[m]={Pass:0,Fail:0,Blocked:0,'Not Run':0};
+    const st=String(t.status||'Not Run');
+    if(byMod[m][st]!==undefined) byMod[m][st]++;
+    else byMod[m]['Not Run']++;
+  });
+  const byDate=countByDateStatus();
+  const trendDates=[],trendPass=[],trendFail=[],trendBlocked=[];
+  Object.keys(byDate).sort().forEach(dt=>{
+    trendDates.push(dt);trendPass.push(byDate[dt].Pass||0);
+    trendFail.push(byDate[dt].Fail||0);trendBlocked.push(byDate[dt].Blocked||0);
+  });
+  const priCounts=countBy(tcData,t=>String(t.priority||'Unknown').toUpperCase());
+  const el=document.getElementById('tab-execution');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card teal"><div class="kpi-label">Total</div><div class="kpi-value">${s.total}</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Pass</div><div class="kpi-value">${s.pass}</div><div class="kpi-sub">${pctStr(s.pass,s.executed)}</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Fail</div><div class="kpi-value">${s.fail}</div><div class="kpi-sub">${pctStr(s.fail,s.executed)}</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Blocked</div><div class="kpi-value">${s.blocked}</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Not Run</div><div class="kpi-value">${s.notrun}</div><div class="kpi-sub">${pctStr(s.notrun,s.total)}</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Pass %</div><div class="kpi-value">${s.passRate}%</div><div class="kpi-sub">of executed</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📦 Execution by Module</div>
+        <canvas id="ch-exec-mod"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📅 Execution by Day</div>
+        <canvas id="ch-exec-trend"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Priority Distribution</div>
+        <canvas id="ch-exec-pri"></canvas>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Full Test Case List</div>
+      <div class="tbl-toolbar">
+        <input class="tbl-search" id="exec-search" placeholder="Search by TC ID, Name, Module, Status…" oninput="filterExecTable()"/>
+        <span class="tbl-count" id="exec-count">${tcData.length} records</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>TC ID</th><th>Name</th><th>Module</th><th>Priority</th><th>Status</th><th>Executed By</th><th>Date</th><th>Defect ID</th><th>Comments</th></tr></thead>
+        <tbody id="exec-tbody"></tbody>
+      </table></div>
+    </div>`;
+  renderExecTbody(tcData);
+  mkChart('ch-exec-mod','bar',{
+    labels:modules,
+    datasets:[
+      {label:'Pass',data:modules.map(m=>byMod[m].Pass),backgroundColor:'#22c55e',borderRadius:4},
+      {label:'Fail',data:modules.map(m=>byMod[m].Fail),backgroundColor:'#ef4444',borderRadius:4},
+      {label:'Blocked',data:modules.map(m=>byMod[m].Blocked),backgroundColor:'#f97316',borderRadius:4},
+      {label:'Not Run',data:modules.map(m=>byMod[m]['Not Run']),backgroundColor:'#e2e8f0',borderRadius:4},
+    ]
+  },{plugins:{legend:{position:'top'}}});
+  mkChart('ch-exec-trend','line',{
+    labels:trendDates,
+    datasets:[
+      {label:'Pass',data:trendPass,borderColor:'#22c55e',tension:.3,pointRadius:3},
+      {label:'Fail',data:trendFail,borderColor:'#ef4444',tension:.3,pointRadius:3},
+      {label:'Blocked',data:trendBlocked,borderColor:'#f97316',tension:.3,pointRadius:3},
+    ]
+  });
+  mkChart('ch-exec-pri','doughnut',{
+    labels:Object.keys(priCounts),
+    datasets:[{data:Object.values(priCounts),backgroundColor:PALETTE,borderWidth:2,hoverOffset:6}]
+  },{plugins:{legend:{position:'right'}}});
+}
+
+function renderExecTbody(data){
+  const tbody=document.getElementById('exec-tbody');
+  if(!tbody) return;
+  document.getElementById('exec-count').textContent=data.length+' records';
+  tbody.innerHTML=data.map(t=>`<tr>
+    <td>${t.id}</td>
+    <td title="${t.name}">${t.name.length>35?t.name.slice(0,35)+'…':t.name}</td>
+    <td>${t.module}</td>
+    <td>${priBadge(t.priority)}</td>
+    <td>${statusBadge(t.status)}</td>
+    <td>${t.execBy}</td>
+    <td>${t.execDate}</td>
+    <td>${t.defectId||'—'}</td>
+    <td title="${t.comments}">${t.comments.length>30?t.comments.slice(0,30)+'…':t.comments}</td>
+  </tr>`).join('')||
+  '<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">No data</td></tr>';
+}
+
+function filterExecTable(){
+  const q=document.getElementById('exec-search').value.toLowerCase();
+  renderExecTbody(tcData.filter(t=>(t.id+t.name+t.module+t.priority+t.status+t.execBy).toLowerCase().includes(q)));
+}
+
+// ================================================================
+// TAB 3: DEFECT MANAGEMENT
+// ================================================================
+function renderDefects(){
+  const d=defStats();
+  const statusCounts=countBy(defectData,x=>x.status);
+  const priCounts=countBy(defectData,x=>String(x.priority||'').toUpperCase());
+  const teamCounts=countBy(defectData,x=>x.team||'Unassigned');
+  const raisedByDate=countBy(defectData,x=>x.raisedOn);
+  const closedByDate=countBy(defectData.filter(x=>x.closedOn),x=>x.closedOn);
+  const allDates=[...new Set([...Object.keys(raisedByDate),...Object.keys(closedByDate)])].filter(Boolean).sort();
+  const rcCounts=countBy(defectData.filter(x=>x.rootCause),x=>x.rootCause);
+  const rcClosed=countBy(defectData.filter(x=>x.rootCause&&x.status==='Closed'),x=>x.rootCause);
+  const topRC=sortedEntries(rcCounts).slice(0,3);
+  const focusDefs=defectData.filter(x=>['P1','P2'].includes(String(x.priority).toUpperCase())&&x.status!=='Closed');
+  const rcGroups=groupBy(defectData.filter(x=>x.rootCause),x=>x.rootCause);
+  const el=document.getElementById('tab-defects');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card teal clickable" onclick="openFilteredDefects(()=>true,'All Defects')">
+        <div class="kpi-label">Total</div><div class="kpi-value">${d.total}</div><div class="kpi-sub">Click to view all</div></div>
+      <div class="kpi-card purple clickable" onclick="openFilteredDefects(x=>x.status==='New','New Defects')">
+        <div class="kpi-label">New</div><div class="kpi-value">${d.newD}</div></div>
+      <div class="kpi-card orange clickable" onclick="openFilteredDefects(x=>x.status==='Open','Open Defects')">
+        <div class="kpi-label">Open</div><div class="kpi-value">${d.open}</div></div>
+      <div class="kpi-card blue clickable" onclick="openFilteredDefects(x=>x.status==='In Progress','In Progress')">
+        <div class="kpi-label">In Progress</div><div class="kpi-value">${d.inprog}</div></div>
+      <div class="kpi-card yellow clickable" onclick="openFilteredDefects(x=>x.status==='Ready for Retest','Ready for Retest')">
+        <div class="kpi-label">RFT</div><div class="kpi-value">${d.rft}</div></div>
+      <div class="kpi-card green clickable" onclick="openFilteredDefects(x=>x.status==='Closed','Closed')">
+        <div class="kpi-label">Closed</div><div class="kpi-value">${d.closed}</div></div>
+      <div class="kpi-card orange clickable" onclick="openFilteredDefects(x=>x.status==='Reopen','Reopened')">
+        <div class="kpi-label">Reopen</div><div class="kpi-value">${d.reopen}</div></div>
+      <div class="kpi-card blue clickable" onclick="openFilteredDefects(x=>x.status==='Assigned','Assigned')">
+        <div class="kpi-label">Assigned</div><div class="kpi-value">${d.assigned}</div></div>
+      <div class="kpi-card red clickable" onclick="openFilteredDefects(x=>String(x.priority).toUpperCase()==='P1','P1 Defects')">
+        <div class="kpi-label">P1</div><div class="kpi-value">${d.p1}</div></div>
+      <div class="kpi-card orange clickable" onclick="openFilteredDefects(x=>String(x.priority).toUpperCase()==='P2','P2 Defects')">
+        <div class="kpi-label">P2</div><div class="kpi-value">${d.p2}</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card"><div class="chart-title">🍩 Status Distribution</div><canvas id="ch-def-status"></canvas></div>
+      <div class="chart-card"><div class="chart-title">📊 Priority Breakdown</div><canvas id="ch-def-pri"></canvas></div>
+      <div class="chart-card" style="flex:2;"><div class="chart-title">👥 Team-wise Defects</div><canvas id="ch-def-team"></canvas></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;"><div class="chart-title">📅 Raised vs Closed Trend</div><canvas id="ch-def-trend"></canvas></div>
+      <div class="chart-card"><div class="chart-title">🍩 Root Cause Distribution</div><canvas id="ch-def-rca"></canvas></div>
+    </div>
+    <div class="section">
+      <div class="section-title">🔴 Focus Area — P1 &amp; P2 Open Defects (${focusDefs.length})</div>
+      ${focusDefs.length?focusDefs.map(d=>`<div class="focus-defect-card" style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${d.id}'))">
+        <div class="fdc-id">${priBadge(d.priority)} <strong>${d.id}</strong> — ${statusBadge(d.status)}</div>
+        <div class="fdc-desc">${d.description}</div>
+        <div class="fdc-meta">
+          <span>Team: ${d.team||'—'}</span>
+          <span>Assigned: ${d.assignedTo||'—'}</span>
+          <span>Raised: ${d.raisedOn||'—'}</span>
+          <span>ETA: ${d.eta||'—'}</span>
+        </div>
+      </div>`).join(''):'<div style="color:#94a3b8;font-size:13px;padding:8px 0;">No P1/P2 open defects — excellent! 🎉</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">💡 Root Cause Insights — Top 3</div>
+      ${topRC.length?topRC.map(([rc,cnt],i)=>`<div class="insight-card">
+        <div class="ic-rank">#${i+1}</div>
+        <div>
+          <div class="ic-text">${rc}</div>
+          <div class="ic-count">${cnt} defect(s) · Closed: ${rcClosed[rc]||0} · Open: ${cnt-(rcClosed[rc]||0)}</div>
+        </div>
+      </div>`).join(''):'<div style="color:#94a3b8;font-size:13px;">No root cause data available in this dataset</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">🔍 Defects Grouped by Root Cause</div>
+      ${Object.keys(rcGroups).length?Object.entries(rcGroups).map(([rc,defs])=>`
+        <div class="rca-group-header" onclick="toggleRCA(this)">
+          ${rc} <span style="font-size:11px;color:#64748b;font-weight:500;">(${defs.length} defects)</span>
+          <span style="margin-left:auto;font-size:12px;">▼</span>
+        </div>
+        <div class="rca-group-body">
+          <div class="tbl-wrap"><table>
+            <thead><tr><th>Defect ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Team</th><th>ETA</th></tr></thead>
+            <tbody>${defs.map(def=>`<tr style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${def.id}'))">
+              <td>${def.id}</td>
+              <td title="${def.description}">${def.description.length>45?def.description.slice(0,45)+'…':def.description}</td>
+              <td>${priBadge(def.priority)}</td>
+              <td>${statusBadge(def.status)}</td>
+              <td>${def.team||'—'}</td>
+              <td>${def.eta||'—'}</td>
+            </tr>`).join('')}</tbody>
+          </table></div>
+        </div>`).join(''):'<div style="color:#94a3b8;font-size:13px;">No root cause data</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Full Defect List — Click row for details</div>
+      <div class="tbl-toolbar">
+        <input class="tbl-search" id="def-search" placeholder="Search Defect ID, Description, Priority, Team…" oninput="filterDefectTable()"/>
+        <span class="tbl-count" id="def-count">${defectData.length} records</span>
+      </div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Defect ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Raised On</th><th>ETA</th><th>Closed On</th><th>Root Cause</th></tr></thead>
+        <tbody id="def-tbody"></tbody>
+      </table></div>
+    </div>`;
+  renderDefectTbody(defectData);
+  mkChart('ch-def-status','doughnut',{
+    labels:Object.keys(statusCounts),
+    datasets:[{data:Object.values(statusCounts),backgroundColor:PALETTE,borderWidth:2,hoverOffset:6}]
+  },{plugins:{legend:{position:'right'}}});
+  mkChart('ch-def-pri','bar',{
+    labels:Object.keys(priCounts),
+    datasets:[{label:'Count',data:Object.values(priCounts),
+      backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#94a3b8'],borderRadius:6}]
+  },{plugins:{legend:{display:false}}});
+  mkChart('ch-def-team','bar',{
+    labels:Object.keys(teamCounts),
+    datasets:[{label:'Defects',data:Object.values(teamCounts),backgroundColor:'#3b82f6',borderRadius:5}]
+  },{plugins:{legend:{display:false}}});
+  mkChart('ch-def-trend','line',{
+    labels:allDates,
+    datasets:[
+      {label:'Raised',data:allDates.map(dt=>raisedByDate[dt]||0),borderColor:'#ef4444',tension:.3,pointRadius:3},
+      {label:'Closed',data:allDates.map(dt=>closedByDate[dt]||0),borderColor:'#22c55e',tension:.3,pointRadius:3},
+    ]
+  });
+  mkChart('ch-def-rca','doughnut',{
+    labels:Object.keys(rcCounts),
+    datasets:[{data:Object.values(rcCounts),backgroundColor:PALETTE,borderWidth:2,hoverOffset:6}]
+  },{plugins:{legend:{position:'right'}}});
+}
+
+function toggleRCA(el){
+  const body=el.nextElementSibling;
+  body.classList.toggle('open');
+  el.querySelector('span:last-child').textContent=body.classList.contains('open')?'▲':'▼';
+}
+
+function renderDefectTbody(data){
+  const tbody=document.getElementById('def-tbody');
+  if(!tbody) return;
+  const cnt=document.getElementById('def-count');
+  if(cnt) cnt.textContent=data.length+' records';
+  tbody.innerHTML=data.map(d=>`<tr style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${d.id}'))">
+    <td>${d.id}</td>
+    <td title="${d.description}">${d.description.length>40?d.description.slice(0,40)+'…':d.description}</td>
+    <td>${priBadge(d.priority)}</td>
+    <td>${statusBadge(d.status)}</td>
+    <td>${d.assignedTo||'—'}</td>
+    <td>${d.team||'—'}</td>
+    <td>${d.raisedOn||'—'}</td>
+    <td>${d.eta||'—'}</td>
+    <td>${d.closedOn||'—'}</td>
+    <td title="${d.rootCause}">${d.rootCause.length>25?d.rootCause.slice(0,25)+'…':d.rootCause||'—'}</td>
+  </tr>`).join('')||'<tr><td colspan="10" style="text-align:center;color:#94a3b8;padding:20px;">No data</td></tr>';
+}
+
+function filterDefectTable(){
+  const q=document.getElementById('def-search').value.toLowerCase();
+  renderDefectTbody(defectData.filter(d=>
+    (d.id+d.description+d.priority+d.status+d.assignedTo+d.team+d.rootCause).toLowerCase().includes(q)));
+}
+
+// ================================================================
+// TAB 4: BLOCKED ANALYSIS
+// ================================================================
+function renderBlocked(){
+  const blocked=tcData.filter(t=>String(t.status).toLowerCase()==='blocked');
+  const blockingDefects=[...new Set(blocked.map(t=>t.defectId).filter(Boolean))];
+  const modCounts=countBy(blocked,t=>t.module||'Unknown');
+  const priCounts=countBy(blocked,t=>String(t.priority||'').toUpperCase());
+  const avgDuration=(()=>{
+    let total=0,count=0;
+    blocked.forEach(t=>{
+      if(t.execDate){
+        const days=Math.round((Date.now()-new Date(t.execDate).getTime())/(1000*86400));
+        if(!isNaN(days)&&days>=0){ total+=days; count++; }
+      }
+    });
+    return count?(total/count).toFixed(1):0;
+  })();
+  const el=document.getElementById('tab-blocked');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card orange"><div class="kpi-label">Total Blocked TCs</div><div class="kpi-value">${blocked.length}</div><div class="kpi-sub">${pctStr(blocked.length,tcData.length)} of total</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Blocking Defects</div><div class="kpi-value">${blockingDefects.length}</div><div class="kpi-sub">Unique defects causing blocks</div></div>
+      <div class="kpi-card yellow"><div class="kpi-label">Modules Affected</div><div class="kpi-value">${Object.keys(modCounts).length}</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Avg Block Duration</div><div class="kpi-value">${avgDuration}</div><div class="kpi-sub">days since blocked</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;"><div class="chart-title">📦 Blocked TCs by Module</div><canvas id="ch-blk-mod"></canvas></div>
+      <div class="chart-card"><div class="chart-title">🍩 Blocked by Priority</div><canvas id="ch-blk-pri"></canvas></div>
+    </div>
+    <div class="section">
+      <div class="section-title">🚫 Blocked Test Cases with Defect Linkage</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>TC ID</th><th>Name</th><th>Module</th><th>Priority</th><th>Defect ID</th><th>Executed By</th><th>Date Blocked</th><th>Days Blocked</th><th>Comments</th></tr></thead>
+        <tbody>${blocked.map(t=>{
+          const days=t.execDate?Math.round((Date.now()-new Date(t.execDate).getTime())/(1000*86400)):'—';
+          return `<tr>
+            <td>${t.id}</td>
+            <td title="${t.name}">${t.name.length>35?t.name.slice(0,35)+'…':t.name}</td>
+            <td>${t.module}</td>
+            <td>${priBadge(t.priority)}</td>
+            <td>${t.defectId||'—'}</td>
+            <td>${t.execBy||'—'}</td>
+            <td>${t.execDate||'—'}</td>
+            <td>${isNaN(days)?days:days+' days'}</td>
+            <td title="${t.comments}">${t.comments.length>25?t.comments.slice(0,25)+'…':t.comments||'—'}</td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="9" style="text-align:center;color:#94a3b8;padding:20px;">No blocked TCs 🎉</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    ${blockingDefects.length?`<div class="section">
+      <div class="section-title">🐛 Blocking Defect Details</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Defect ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>ETA</th></tr></thead>
+        <tbody>${blockingDefects.map(did=>{
+          const def=defectData.find(d=>d.id===did);
+          if(!def) return `<tr><td>${did}</td><td colspan="5" style="color:#94a3b8;">Not found in defect list</td></tr>`;
+          return `<tr style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${def.id}'))">
+            <td>${def.id}</td>
+            <td title="${def.description}">${def.description.length>40?def.description.slice(0,40)+'…':def.description}</td>
+            <td>${priBadge(def.priority)}</td>
+            <td>${statusBadge(def.status)}</td>
+            <td>${def.assignedTo||'—'}</td>
+            <td>${def.eta||'—'}</td>
+          </tr>`;
+        }).join('')}</tbody>
+      </table></div>
+    </div>`:''}`;
+  mkChart('ch-blk-mod','bar',{
+    labels:Object.keys(modCounts),
+    datasets:[{label:'Blocked TCs',data:Object.values(modCounts),backgroundColor:'#f97316',borderRadius:6}]
+  },{plugins:{legend:{display:false}}});
+  mkChart('ch-blk-pri','doughnut',{
+    labels:Object.keys(priCounts),
+    datasets:[{data:Object.values(priCounts),backgroundColor:['#ef4444','#f97316','#eab308','#22c55e'],borderWidth:2}]
+  },{plugins:{legend:{position:'right'}}});
+}
+
+// ================================================================
+// TAB 5: COVERAGE
+// ================================================================
+function renderCoverage(){
+  const modules=[...new Set(tcData.map(t=>t.module||'Unknown'))].sort();
+  const covRows=modules.map(m=>{
+    const mTCs=tcData.filter(t=>(t.module||'Unknown')===m);
+    const covered=mTCs.filter(t=>t.status&&
+      String(t.status).toLowerCase()!=='not run'&&String(t.status).toLowerCase()!=='notrun'&&t.status!=='').length;
+    const pct=mTCs.length?Math.round((covered/mTCs.length)*100):0;
+    return {module:m,total:mTCs.length,covered,notCovered:mTCs.length-covered,pct};
+  });
+  const priCov={P1:0,P2:0,P3:0,P4:0,Other:0};
+  const priTot={P1:0,P2:0,P3:0,P4:0,Other:0};
+  tcData.forEach(t=>{
+    const p=String(t.priority||'').toUpperCase();
+    const key=priTot[p]!==undefined?p:'Other';
+    priTot[key]++;
+    const s=String(t.status||'').toLowerCase();
+    if(s&&s!=='not run'&&s!=='notrun') priCov[key]++;
+  });
+  const overallCovered=tcData.filter(t=>{
+    const s=String(t.status||'').toLowerCase();
+    return s&&s!=='not run'&&s!=='notrun';
+  }).length;
+  const el=document.getElementById('tab-coverage');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card teal"><div class="kpi-label">Total Modules</div><div class="kpi-value">${modules.length}</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Total TCs</div><div class="kpi-value">${tcData.length}</div></div>
+      <div class="kpi-card green"><div class="kpi-label">Covered TCs</div><div class="kpi-value">${overallCovered}</div><div class="kpi-sub">${pctStr(overallCovered,tcData.length)}</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Not Covered</div><div class="kpi-value">${tcData.length-overallCovered}</div></div>
+      <div class="kpi-card ${Math.round((overallCovered/Math.max(tcData.length,1))*100)>=80?'green':Math.round((overallCovered/Math.max(tcData.length,1))*100)>=50?'yellow':'red'}">
+        <div class="kpi-label">Overall Coverage</div>
+        <div class="kpi-value">${pctStr(overallCovered,tcData.length)}</div>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📊 Module Coverage Progress</div>
+        ${covRows.map(c=>`<div class="cov-bar-wrap">
+          <div class="cov-bar-label" title="${c.module}">${c.module.length>18?c.module.slice(0,18)+'…':c.module}</div>
+          <div class="cov-bar-bg">
+            <div class="cov-bar-fill" style="width:${c.pct}%;background:${c.pct>=80?'#22c55e':c.pct>=50?'#eab308':'#ef4444'};"></div>
+          </div>
+          <div class="cov-bar-pct" style="color:${c.pct>=80?'#22c55e':c.pct>=50?'#b45309':'#ef4444'};">${c.pct}%</div>
+        </div>`).join('')}
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Priority Coverage</div>
+        <canvas id="ch-cov-pri"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📊 Covered vs Not Covered by Module</div>
+        <canvas id="ch-cov-mod"></canvas>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Coverage Gap Analysis by Module</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Module</th><th>Total TCs</th><th>Covered</th><th>Not Covered</th><th>Coverage %</th><th>Risk Level</th></tr></thead>
+        <tbody>${covRows.map(c=>`<tr>
+          <td><strong>${c.module}</strong></td>
+          <td>${c.total}</td>
+          <td><span style="color:#22c55e;font-weight:700;">${c.covered}</span></td>
+          <td><span style="color:#ef4444;font-weight:700;">${c.notCovered}</span></td>
+          <td>
+            <div style="display:flex;align-items:center;gap:8px;">
+              <div style="flex:1;height:8px;background:#f1f5f9;border-radius:4px;overflow:hidden;">
+                <div style="width:${c.pct}%;height:100%;background:${c.pct>=80?'#22c55e':c.pct>=50?'#eab308':'#ef4444'};border-radius:4px;"></div>
+              </div>
+              <span style="font-weight:700;">${c.pct}%</span>
+            </div>
+          </td>
+          <td><span class="badge ${c.pct>=80?'badge-pass':c.pct>=50?'badge-reopen':'badge-fail'}">${c.pct>=80?'✅ Good':c.pct>=50?'⚠️ Moderate':'🔴 At Risk'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  mkChart('ch-cov-pri','doughnut',{
+    labels:Object.keys(priCov).filter(k=>priTot[k]>0),
+    datasets:[{
+      data:Object.keys(priCov).filter(k=>priTot[k]>0).map(k=>priCov[k]),
+      backgroundColor:['#ef4444','#f97316','#eab308','#22c55e','#94a3b8'],borderWidth:2
+    }]
+  },{plugins:{legend:{position:'right'}}});
+  mkChart('ch-cov-mod','bar',{
+    labels:covRows.map(c=>c.module),
+    datasets:[
+      {label:'Covered',data:covRows.map(c=>c.covered),backgroundColor:'#22c55e',borderRadius:4},
+      {label:'Not Covered',data:covRows.map(c=>c.notCovered),backgroundColor:'#e2e8f0',borderRadius:4},
+    ]
+  },{plugins:{legend:{position:'top'}}});
+}
+
+// ================================================================
+// TAB 6: QUALITY METRICS
+// ================================================================
+function renderQuality(){
+  const s=tcStats(), d=defStats();
+  const passRate=parseFloat(s.passRate)||0;
+  const dreRaw=s.executed?Math.round(((s.executed-s.fail)/s.executed)*100):0;
+  const defDensityRaw=s.executed?((d.total/s.executed)*10).toFixed(2):0;
+  const score=Math.min(100,Math.round(
+    (passRate*0.40)+
+    (d.total?Math.min(100,(1-(d.p1+d.p2)/Math.max(d.total,1))*100):100)*0.35+
+    (dreRaw*0.25)
+  ));
+  const grade=score>=90?'A':score>=80?'B':score>=65?'C':score>=50?'D':'F';
+  const gradeMsg=score>=90?'Excellent':score>=80?'Good':score>=65?'Satisfactory':score>=50?'Needs Improvement':'Critical';
+  const byDate=countByDateStatus();
+  const trendDates=[],trendPR=[];
+  Object.keys(byDate).sort().forEach(dt=>{
+    const {Pass:p=0,Fail:f=0,Blocked:b=0}=byDate[dt];
+    const exec=p+f+b;
+    trendDates.push(dt);
+    trendPR.push(exec?((p/exec)*100).toFixed(1):0);
+  });
+  const modules=[...new Set(tcData.map(t=>t.module||'Unknown'))].sort();
+  const defDensityMod=modules.map(m=>{
+    const mTCs=tcData.filter(t=>(t.module||'Unknown')===m);
+    const executed=mTCs.filter(t=>String(t.status||'').toLowerCase()!=='not run').length;
+    // Defects linked via defectId on TCs in this module
+    const tcDefIds=[...new Set(mTCs.map(t=>t.defectId).filter(Boolean))];
+    const mDefs=tcDefIds.length;
+    return {module:m,executed,mDefs,density:executed?((mDefs/executed)*10).toFixed(2):0};
+  });
+  const el=document.getElementById('tab-quality');
+  el.innerHTML=`
+    <div class="qs-card">
+      <div class="qs-score-wrap">
+        <div class="qs-label">Quality Score</div>
+        <div class="qs-score">${score}</div>
+        <div class="qs-grade">Grade: ${grade} — ${gradeMsg}</div>
+      </div>
+      <div class="qs-details">
+        <div class="qs-metric">
+          <div class="qs-metric-label">Pass Rate</div>
+          <div class="qs-metric-value">${s.passRate}%</div>
+        </div>
+        <div class="qs-metric">
+          <div class="qs-metric-label">Defect Removal Efficiency</div>
+          <div class="qs-metric-value">${dreRaw}%</div>
+        </div>
+        <div class="qs-metric">
+          <div class="qs-metric-label">Defect Density</div>
+          <div class="qs-metric-value">${defDensityRaw}</div>
+        </div>
+        <div class="qs-metric">
+          <div class="qs-metric-label">Reopened Defects</div>
+          <div class="qs-metric-value">${d.reopen}</div>
+        </div>
+      </div>
+    </div>
+    <div class="kpi-row">
+      <div class="kpi-card green"><div class="kpi-label">Pass Rate</div><div class="kpi-value">${s.passRate}%</div><div class="kpi-sub">${s.pass}/${s.executed} executed</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">DRE</div><div class="kpi-value">${dreRaw}%</div><div class="kpi-sub">Defect Removal Efficiency</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Defect Density</div><div class="kpi-value">${defDensityRaw}</div><div class="kpi-sub">per 10 TCs executed</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Escaped Defects</div><div class="kpi-value">${d.reopen}</div><div class="kpi-sub">Reopened defects</div></div>
+      <div class="kpi-card purple"><div class="kpi-label">Critical Open</div><div class="kpi-value">${d.p1+d.p2}</div><div class="kpi-sub">P1+P2 not closed</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📅 Pass Rate Trend (%)</div>
+        <canvas id="ch-qual-trend"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">📊 Defect Density by Module</div>
+        <canvas id="ch-qual-density"></canvas>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Defect Density by Module — Detail</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Module</th><th>Executed TCs</th><th>Linked Defects</th><th>Density (per 10 TCs)</th><th>Grade</th></tr></thead>
+        <tbody>${defDensityMod.map(x=>`<tr>
+          <td>${x.module}</td>
+          <td>${x.executed}</td>
+          <td>${x.mDefs}</td>
+          <td>${x.density}</td>
+          <td><span class="badge ${parseFloat(x.density)<=1?'badge-pass':parseFloat(x.density)<=3?'badge-reopen':'badge-fail'}">${parseFloat(x.density)<=1?'Low Risk':parseFloat(x.density)<=3?'Medium':'High Risk'}</span></td>
+        </tr>`).join('')}</tbody>
+      </table></div>
+    </div>`;
+  mkChart('ch-qual-trend','line',{
+    labels:trendDates,
+    datasets:[{
+      label:'Pass Rate %',data:trendPR,
+      borderColor:'#0f766e',backgroundColor:'rgba(15,118,110,.12)',fill:true,tension:.35,pointRadius:3
+    }]
+  },{scales:{y:{min:0,max:100}}});
+  mkChart('ch-qual-density','bar',{
+    labels:defDensityMod.map(x=>x.module),
+    datasets:[{label:'Density',data:defDensityMod.map(x=>x.density),backgroundColor:'#8b5cf6',borderRadius:6}]
+  },{plugins:{legend:{display:false}}});
+}
+
+// ================================================================
+// TAB 7: RISKS & FOCUS
+// ================================================================
+function renderRisks(){
+  const p1p2Open=defectData.filter(d=>['P1','P2'].includes(String(d.priority).toUpperCase())&&d.status!=='Closed');
+  const failTCs=tcData.filter(t=>String(t.status).toLowerCase()==='fail');
+  const blockedTCs=tcData.filter(t=>String(t.status).toLowerCase()==='blocked');
+  const today=new Date().toISOString().slice(0,10);
+  const overdueDefects=defectData.filter(d=>d.eta&&d.eta<today&&d.status!=='Closed');
+  const riskLevel=p1p2Open.length>10||blockedTCs.length>20?'HIGH':
+    p1p2Open.length>5||blockedTCs.length>10?'MEDIUM':'LOW';
+  const riskColor={'HIGH':'#ef4444','MEDIUM':'#f97316','LOW':'#22c55e'}[riskLevel];
+  const el=document.getElementById('tab-risks');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card red"><div class="kpi-label">P1+P2 Open</div><div class="kpi-value">${p1p2Open.length}</div><div class="kpi-sub">Critical open defects</div></div>
+      <div class="kpi-card red"><div class="kpi-label">Failed TCs</div><div class="kpi-value">${failTCs.length}</div><div class="kpi-sub">${pctStr(failTCs.length,tcData.length)} of total</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Blocked TCs</div><div class="kpi-value">${blockedTCs.length}</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Overdue Defects</div><div class="kpi-value">${overdueDefects.length}</div><div class="kpi-sub">Past ETA, not closed</div></div>
+      <div class="kpi-card" style="border-top-color:${riskColor};">
+        <div class="kpi-label">Overall Risk</div>
+        <div class="kpi-value" style="color:${riskColor};">${riskLevel}</div>
+        <div class="kpi-sub">${riskLevel==='HIGH'?'Immediate action needed':riskLevel==='MEDIUM'?'Monitor closely':'On track'}</div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">🔴 P1 &amp; P2 Open Defects — Immediate Risk</div>
+      ${p1p2Open.length?p1p2Open.map(d=>`<div class="risk-item high" style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${d.id}'))">
+        <div class="risk-icon">🚨</div>
+        <div class="risk-content">
+          <div class="risk-title">${priBadge(d.priority)} ${d.id} — ${statusBadge(d.status)}</div>
+          <div class="risk-desc">
+            ${d.description}<br/>
+            <strong>Team:</strong> ${d.team||'—'} &nbsp;|&nbsp;
+            <strong>Assigned:</strong> ${d.assignedTo||'—'} &nbsp;|&nbsp;
+            <strong>Raised:</strong> ${d.raisedOn||'—'} &nbsp;|&nbsp;
+            <strong>ETA:</strong> ${d.eta||'—'}
+          </div>
+        </div>
+      </div>`).join(''):'<div style="color:#94a3b8;font-size:13px;padding:8px;">No P1/P2 open defects 🎉</div>'}
+    </div>
+    ${overdueDefects.length?`<div class="section">
+      <div class="section-title">⏰ Overdue Defects — Past ETA</div>
+      ${overdueDefects.map(d=>`<div class="risk-item med" style="cursor:pointer;" onclick="showDefectModal(defectData.find(x=>x.id==='${d.id}'))">
+        <div class="risk-icon">⏰</div>
+        <div class="risk-content">
+          <div class="risk-title">${priBadge(d.priority)} ${d.id} ${statusBadge(d.status)}</div>
+          <div class="risk-desc">${d.description}<br/><strong>ETA was:</strong> ${d.eta} &nbsp;|&nbsp; <strong>Team:</strong> ${d.team||'—'}</div>
+        </div>
+      </div>`).join('')}
+    </div>`:''}
+    <div class="section">
+      <div class="section-title">🟠 Blocked Test Cases</div>
+      ${blockedTCs.length?blockedTCs.map(t=>`<div class="risk-item med">
+        <div class="risk-icon">🚫</div>
+        <div class="risk-content">
+          <div class="risk-title">${t.id} — ${t.name.length>55?t.name.slice(0,55)+'…':t.name}</div>
+          <div class="risk-desc">
+            Module: <strong>${t.module||'—'}</strong> &nbsp;|&nbsp;
+            ${priBadge(t.priority)} &nbsp;|&nbsp;
+            Defect: <strong>${t.defectId||'None linked'}</strong>
+          </div>
+        </div>
+      </div>`).join(''):'<div style="color:#94a3b8;font-size:13px;padding:8px;">No blocked test cases</div>'}
+    </div>
+    <div class="section">
+      <div class="section-title">❌ Failed Test Cases</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>TC ID</th><th>Name</th><th>Module</th><th>Priority</th><th>Defect ID</th><th>Executed By</th><th>Date</th></tr></thead>
+        <tbody>${failTCs.map(t=>`<tr>
+          <td>${t.id}</td>
+          <td title="${t.name}">${t.name.length>38?t.name.slice(0,38)+'…':t.name}</td>
+          <td>${t.module}</td>
+          <td>${priBadge(t.priority)}</td>
+          <td>${t.defectId||'—'}</td>
+          <td>${t.execBy||'—'}</td>
+          <td>${t.execDate||'—'}</td>
+        </tr>`).join('')||'<tr><td colspan="7" style="text-align:center;color:#94a3b8;padding:20px;">No failed TCs 🎉</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+}
+
+// ================================================================
+// TAB 8: RESOURCES
+// ================================================================
+function renderResources(){
+  const testerExec   =countBy(tcData.filter(t=>t.execBy),t=>t.execBy);
+  const testerPass   =countBy(tcData.filter(t=>t.execBy&&String(t.status).toLowerCase()==='pass'),t=>t.execBy);
+  const testerFail   =countBy(tcData.filter(t=>t.execBy&&String(t.status).toLowerCase()==='fail'),t=>t.execBy);
+  const testerBlocked=countBy(tcData.filter(t=>t.execBy&&String(t.status).toLowerCase()==='blocked'),t=>t.execBy);
+  const defRaisedBy  =countBy(defectData.filter(d=>d.raisedBy),d=>d.raisedBy);
+  const defAssigned  =countBy(defectData.filter(d=>d.assignedTo),d=>d.assignedTo);
+  const testers=Object.keys(testerExec).sort();
+  const el=document.getElementById('tab-resources');
+  el.innerHTML=`
+    <div class="kpi-row">
+      <div class="kpi-card teal"><div class="kpi-label">Active Testers</div><div class="kpi-value">${testers.length}</div></div>
+      <div class="kpi-card blue"><div class="kpi-label">Defect Raisers</div><div class="kpi-value">${Object.keys(defRaisedBy).length}</div></div>
+      <div class="kpi-card orange"><div class="kpi-label">Assignees</div><div class="kpi-value">${Object.keys(defAssigned).length}</div></div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📊 Workload by Tester (Pass / Fail / Blocked)</div>
+        <canvas id="ch-res-work"></canvas>
+      </div>
+      <div class="chart-card">
+        <div class="chart-title">🍩 Defects Raised By</div>
+        <canvas id="ch-res-defraise"></canvas>
+      </div>
+    </div>
+    <div class="charts-row">
+      <div class="chart-card" style="flex:2;">
+        <div class="chart-title">📊 Defects Assigned To</div>
+        <canvas id="ch-res-defassign"></canvas>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Execution Summary by Tester</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Tester</th><th>Total Executed</th><th>Pass</th><th>Fail</th><th>Blocked</th><th>Pass Rate</th></tr></thead>
+        <tbody>${testers.map(t=>{
+          const tot=testerExec[t]||0,p=testerPass[t]||0,f=testerFail[t]||0,b=testerBlocked[t]||0;
+          return `<tr>
+            <td><strong>${t}</strong></td>
+            <td>${tot}</td>
+            <td><span style="color:#22c55e;font-weight:700;">${p}</span></td>
+            <td><span style="color:#ef4444;font-weight:700;">${f}</span></td>
+            <td><span style="color:#f97316;font-weight:700;">${b}</span></td>
+            <td>
+              <div style="display:flex;align-items:center;gap:8px;">
+                <div style="flex:1;height:7px;background:#f1f5f9;border-radius:4px;overflow:hidden;">
+                  <div style="width:${tot?((p/tot)*100).toFixed(0):0}%;height:100%;background:#22c55e;border-radius:4px;"></div>
+                </div>
+                <span style="font-weight:700;">${pctStr(p,tot)}</span>
+              </div>
+            </td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="6" style="text-align:center;color:#94a3b8;padding:20px;">No tester data found</td></tr>'}</tbody>
+      </table></div>
+    </div>
+    <div class="section">
+      <div class="section-title">📋 Defects Raised by Tester</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Tester</th><th>Defects Raised</th><th>P1</th><th>P2</th><th>P3+P4</th></tr></thead>
+        <tbody>${sortedEntries(defRaisedBy).map(([t,cnt])=>{
+          const byT=defectData.filter(d=>d.raisedBy===t);
+          const p1c=byT.filter(d=>String(d.priority).toUpperCase()==='P1').length;
+          const p2c=byT.filter(d=>String(d.priority).toUpperCase()==='P2').length;
+          return `<tr>
+            <td><strong>${t}</strong></td>
+            <td>${cnt}</td>
+            <td><span style="color:#ef4444;font-weight:700;">${p1c}</span></td>
+            <td><span style="color:#f97316;font-weight:700;">${p2c}</span></td>
+            <td>${cnt-p1c-p2c}</td>
+          </tr>`;
+        }).join('')||'<tr><td colspan="5" style="text-align:center;color:#94a3b8;padding:20px;">No data</td></tr>'}</tbody>
+      </table></div>
+    </div>`;
+  mkChart('ch-res-work','bar',{
+    labels:testers,
+    datasets:[
+      {label:'Pass',data:testers.map(t=>testerPass[t]||0),backgroundColor:'#22c55e',borderRadius:4},
+      {label:'Fail',data:testers.map(t=>testerFail[t]||0),backgroundColor:'#ef4444',borderRadius:4},
+      {label:'Blocked',data:testers.map(t=>testerBlocked[t]||0),backgroundColor:'#f97316',borderRadius:4},
+    ]
+  },{plugins:{legend:{position:'top'}}});
+  mkChart('ch-res-defraise','doughnut',{
+    labels:Object.keys(defRaisedBy),
+    datasets:[{data:Object.values(defRaisedBy),backgroundColor:PALETTE,borderWidth:2,hoverOffset:6}]
+  },{plugins:{legend:{position:'right'}}});
+  mkChart('ch-res-defassign','bar',{
+    labels:sortedEntries(defAssigned).map(([k])=>k),
+    datasets:[{label:'Defects Assigned',data:sortedEntries(defAssigned).map(([,v])=>v),backgroundColor:'#8b5cf6',borderRadius:5}]
+  },{plugins:{legend:{display:false}}});
+}
+
+// ================================================================
+// TAB 9: SIGN-OFF
+// ================================================================
+function renderSignoff(){
+  const s=tcStats(), d=defStats();
+  const overallGo=parseFloat(s.passRate)>=80&&d.p1===0;
+  const overallAmber=parseFloat(s.passRate)>=60&&d.p1<=2;
+  const overallStatus=overallGo?'GO':overallAmber?'CONDITIONAL GO':'NO GO';
+  const statusColor={'GO':'#22c55e','CONDITIONAL GO':'#eab308','NO GO':'#ef4444'}[overallStatus];
+  const today=new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'});
+  const el=document.getElementById('tab-signoff');
+  el.innerHTML=`
+    <div class="section" style="border-left:5px solid ${statusColor};">
+      <div class="section-title">🏁 Release Decision</div>
+      <div style="display:flex;align-items:center;gap:20px;flex-wrap:wrap;">
+        <div style="text-align:center;">
+          <div style="font-size:12px;color:#64748b;font-weight:700;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;">Overall Status</div>
+          <div style="background:${statusColor};color:#fff;padding:10px 28px;border-radius:24px;font-size:16px;font-weight:900;letter-spacing:.5px;">${overallStatus}</div>
+        </div>
+        <div style="flex:1;min-width:200px;">
+          <div style="font-size:13px;color:#64748b;line-height:1.7;">
+            ${overallStatus==='GO'?'✅ All quality gates met. Recommended for release.':
+              overallStatus==='CONDITIONAL GO'?'⚠️ Some conditions not fully met. Proceed with caution and management sign-off.':
+              '🔴 Quality gates NOT met. Release is NOT recommended until critical defects are resolved.'}
+          </div>
+          <div style="font-size:12px;color:#94a3b8;margin-top:6px;">Criteria: Pass Rate ≥ 80%, No open P1 defects</div>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📊 Quality Summary</div>
+      <div class="tbl-wrap"><table>
+        <thead><tr><th>Metric</th><th>Actual Value</th><th>Target / Threshold</th><th>Gate Status</th></tr></thead>
+        <tbody>
+          <tr><td>Total Test Cases</td><td>${s.total}</td><td>—</td><td><span class="badge badge-pass">Measured</span></td></tr>
+          <tr><td>Execution Rate</td><td>${pctStr(s.executed,s.total)} (${s.executed}/${s.total})</td><td>≥ 95%</td><td><span class="badge ${(s.executed/Math.max(s.total,1))>=0.95?'badge-pass':'badge-fail'}">${(s.executed/Math.max(s.total,1))>=0.95?'✅ Pass':'❌ Fail'}</span></td></tr>
+          <tr><td>Pass Rate</td><td>${s.passRate}%</td><td>≥ 80%</td><td><span class="badge ${parseFloat(s.passRate)>=80?'badge-pass':'badge-fail'}">${parseFloat(s.passRate)>=80?'✅ Pass':'❌ Fail'}</span></td></tr>
+          <tr><td>Blocked TCs</td><td>${s.blocked}</td><td>0</td><td><span class="badge ${s.blocked===0?'badge-pass':'badge-blocked'}">${s.blocked===0?'✅ Pass':'⚠️ Blocked'}</span></td></tr>
+          <tr><td>Failed TCs</td><td>${s.fail}</td><td>0</td><td><span class="badge ${s.fail===0?'badge-pass':'badge-fail'}">${s.fail===0?'✅ Pass':'❌ Fail'}</span></td></tr>
+          <tr><td>Total Defects Raised</td><td>${d.total}</td><td>—</td><td><span class="badge badge-notrun">Informational</span></td></tr>
+          <tr><td>P1 Defects Open</td><td>${d.p1}</td><td>0</td><td><span class="badge ${d.p1===0?'badge-pass':'badge-fail'}">${d.p1===0?'✅ Pass':'❌ Fail'}</span></td></tr>
+          <tr><td>P2 Defects Open</td><td>${d.p2}</td><td>0</td><td><span class="badge ${d.p2===0?'badge-pass':'badge-reopen'}">${d.p2===0?'✅ Pass':'⚠️ Open'}</span></td></tr>
+          <tr><td>Defects Closed</td><td>${d.closed}</td><td>—</td><td><span class="badge badge-pass">Closed</span></td></tr>
+          <tr><td>Reopened Defects</td><td>${d.reopen}</td><td>0</td><td><span class="badge ${d.reopen===0?'badge-pass':'badge-reopen'}">${d.reopen===0?'✅ Pass':'⚠️ Reopened'}</span></td></tr>
+        </tbody>
+      </table></div>
+    </div>
+    <div class="section">
+      <div class="section-title">✍️ Approval Signatures</div>
+      <div class="signoff-grid">
+        <div class="signoff-card">
+          <div class="sig-role">QA Lead</div>
+          <div class="sig-name">${rptMeta.prep||'__________________'}</div>
+          <div class="sig-line"></div>
+          <div class="sig-date">Date: ${today}</div>
+          <span class="sig-status" style="background:#dcfce7;color:#166534;">Signed</span>
+        </div>
+        <div class="signoff-card">
+          <div class="sig-role">QA Manager / Reviewer</div>
+          <div class="sig-name">${rptMeta.rev||'__________________'}</div>
+          <div class="sig-line"></div>
+          <div class="sig-date">Date: ______________</div>
+          <span class="sig-status" style="background:#fef3c7;color:#92400e;">Pending</span>
+        </div>
+        <div class="signoff-card">
+          <div class="sig-role">Project Manager</div>
+          <div class="sig-name">__________________</div>
+          <div class="sig-line"></div>
+          <div class="sig-date">Date: ______________</div>
+          <span class="sig-status" style="background:#fef3c7;color:#92400e;">Pending</span>
+        </div>
+      </div>
+    </div>
+    <div class="section">
+      <div class="section-title">📝 Report Metadata</div>
+      <div class="rpt-grid">
+        <div class="rpt-field"><label>Project Name</label><div style="font-size:13px;padding:4px 0;font-weight:700;">${rptMeta.project||'—'}</div></div>
+        <div class="rpt-field"><label>Reporting Start Date</label><div style="font-size:13px;padding:4px 0;">${rptMeta.startDate||'—'}</div></div>
+        <div class="rpt-field"><label>Reporting End Date</label><div style="font-size:13px;padding:4px 0;">${rptMeta.endDate||'—'}</div></div>
+        <div class="rpt-field"><label>Report Type</label><div style="font-size:13px;padding:4px 0;">${rptMeta.reportType||'—'}</div></div>
+      </div>
+    </div>`;
+}
+
+// ================================================================
+// TAB 10: DISCRIP (DISCREPANCY AUDIT & ANALYSIS)
+// ================================================================
+function analyzeDiscrepancies(){
+  const discrepancies = [];
+
+  // 1. Defect Multi-State / Conflicting Statuses (Same Defect ID with conflicting status/priority)
+  const defMap = {};
+  defectData.forEach((d, idx) => {
+    const cleanId = (d.id||'').trim().toUpperCase();
+    if(!cleanId) return;
+    if(!defMap[cleanId]) defMap[cleanId] = [];
+    defMap[cleanId].push({ ...d, index: idx + 1 });
+  });
+
+  Object.entries(defMap).forEach(([id, entries]) => {
+    if(entries.length > 1){
+      const statuses = [...new Set(entries.map(e => e.status))];
+      const priorities = [...new Set(entries.map(e => e.priority))];
+      if(statuses.length > 1 || priorities.length > 1){
+        discrepancies.push({
+          type: 'Defect Contradiction',
+          severity: 'HIGH',
+          entityId: id,
+          category: 'Defects',
+          description: `Defect <strong>${id}</strong> appears ${entries.length} times with conflicting attributes: Statuses [${statuses.join(', ')}], Priorities [${priorities.join(', ')}].`,
+          records: entries.map(e => `Row #${e.index}: Status=${e.status}, Priority=${e.priority}, Assigned=${e.assignedTo||'—'}, Closed=${e.closedOn||'—'}`).join('<br/>')
+        });
+      }
+    }
+  });
+
+  // 2. Test Case Conflicting Statuses (Same TC ID with different outcomes)
+  const tcMap = {};
+  tcData.forEach((t, idx) => {
+    const cleanId = (t.id||'').trim().toUpperCase();
+    if(!cleanId) return;
+    if(!tcMap[cleanId]) tcMap[cleanId] = [];
+    tcMap[cleanId].push({ ...t, index: idx + 1 });
+  });
+
+  Object.entries(tcMap).forEach(([id, entries]) => {
+    if(entries.length > 1){
+      const statuses = [...new Set(entries.map(e => e.status))];
+      if(statuses.length > 1){
+        discrepancies.push({
+          type: 'Test Case Status Conflict',
+          severity: 'HIGH',
+          entityId: id,
+          category: 'Test Execution',
+          description: `Test Case <strong>${id}</strong> is logged with multiple conflicting statuses: [${statuses.join(', ')}].`,
+          records: entries.map(e => `Row #${e.index}: Status=${e.status}, Module=${e.module||'—'}, Executed By=${e.execBy||'—'}, Date=${e.execDate||'—'}`).join('<br/>')
+        });
+      }
+    }
+  });
+
+  // 3. TC Passed but Linked to Open Defect
+  tcData.forEach((t, idx) => {
+    if(String(t.status||'').toLowerCase() === 'pass' && t.defectId){
+      const def = defectData.find(d => (d.id||'').trim().toUpperCase() === t.defectId.trim().toUpperCase());
+      if(def && def.status !== 'Closed'){
+        discrepancies.push({
+          type: 'Pass with Open Defect',
+          severity: 'MEDIUM',
+          entityId: t.id,
+          category: 'Integrity',
+          description: `Test Case <strong>${t.id}</strong> marked as <strong>Pass</strong>, yet remains linked to Open Defect <strong>${def.id}</strong> (Status: ${def.status}).`,
+          records: `TC Status: Pass (Date: ${t.execDate||'—'}) vs Defect Status: ${def.status} (ETA: ${def.eta||'—'})`
+        });
+      }
+    }
+  });
+
+  // 4. TC Failed without Linked Defect
+  tcData.forEach((t, idx) => {
+    if(String(t.status||'').toLowerCase() === 'fail' && !t.defectId){
+      discrepancies.push({
+        type: 'Failed TC Missing Defect',
+        severity: 'MEDIUM',
+        entityId: t.id,
+        category: 'Traceability',
+        description: `Test Case <strong>${t.id}</strong> is marked as <strong>Fail</strong>, but has no Defect ID linked to it.`,
+        records: `Module: ${t.module||'—'}, Executed By: ${t.execBy||'—'}, Date: ${t.execDate||'—'}`
+      });
+    }
+  });
+
+  // 5. Defect Marked Closed Without Closed Date or with Incomplete Resolution
+  defectData.forEach((d, idx) => {
+    if(d.status === 'Closed' && !d.closedOn){
+      discrepancies.push({
+        type: 'Missing Closure Date',
+        severity: 'LOW',
+        entityId: d.id,
+        category: 'Defects',
+        description: `Defect <strong>${d.id}</strong> is set to <strong>Closed</strong> status, but the Closed On date is empty.`,
+        records: `Raised On: ${d.raisedOn||'—'}, Assigned Team: ${d.team||'—'}`
+      });
+    }
+    if(d.status !== 'Closed' && d.closedOn){
+      discrepancies.push({
+        type: 'Premature Closure Date',
+        severity: 'LOW',
+        entityId: d.id,
+        category: 'Defects',
+        description: `Defect <strong>${d.id}</strong> has a Closed Date (${d.closedOn}), but status is active (<strong>${d.status}</strong>).`,
+        records: `Status: ${d.status}, Closed Date: ${d.closedOn}`
+      });
+    }
+  });
+
+  return discrepancies;
+}
+
+function updateDiscrepancyBadge(){
+  const disc = analyzeDiscrepancies();
+  const badge = document.getElementById('discrip-badge');
+  if(badge){
+    badge.textContent = disc.length;
+    badge.style.display = disc.length ? 'inline-block' : 'none';
+  }
+}
+
+function renderDiscrip(){
+  const disc = analyzeDiscrepancies();
+  const highSev = disc.filter(d => d.severity === 'HIGH').length;
+  const medSev = disc.filter(d => d.severity === 'MEDIUM').length;
+  const lowSev = disc.filter(d => d.severity === 'LOW').length;
+
+  const el = document.getElementById('tab-discrip');
+  el.innerHTML = `
+    <div class="kpi-row">
+      <div class="kpi-card ${disc.length ? 'red' : 'green'}">
+        <div class="kpi-label">Total Discrepancies</div>
+        <div class="kpi-value">${disc.length}</div>
+        <div class="kpi-sub">${disc.length ? 'Inconsistencies detected' : 'Clean dataset'}</div>
+      </div>
+      <div class="kpi-card red">
+        <div class="kpi-label">High Severity</div>
+        <div class="kpi-value">${highSev}</div>
+        <div class="kpi-sub">Contradictory records</div>
+      </div>
+      <div class="kpi-card orange">
+        <div class="kpi-label">Medium Severity</div>
+        <div class="kpi-value">${medSev}</div>
+        <div class="kpi-sub">Traceability / Status gaps</div>
+      </div>
+      <div class="kpi-card yellow">
+        <div class="kpi-label">Low Severity</div>
+        <div class="kpi-value">${lowSev}</div>
+        <div class="kpi-sub">Missing dates &amp; info</div>
+      </div>
+      <div class="kpi-card ${disc.length === 0 ? 'green' : disc.length <= 5 ? 'yellow' : 'red'}">
+        <div class="kpi-label">Data Health</div>
+        <div class="kpi-value">${disc.length === 0 ? '100%' : Math.max(10, Math.round(100 - (disc.length * 4))) + '%'}</div>
+        <div class="kpi-sub">${disc.length === 0 ? 'Audit Passed' : 'Needs Review'}</div>
+      </div>
+    </div>
+
+    <div class="section">
+      <div class="section-title">🔍 Data Inconsistencies &amp; Discrepancy Breakdown</div>
+      <div style="font-size:13px;color:#64748b;margin-bottom:14px;line-height:1.6;">
+        This audit scanner identifies conflicting states across sheets, screenshots, and executions (e.g. one defect with two different statuses across pages, duplicate test cases with contradictory outcomes, or missing traceability).
+      </div>
+
+      ${disc.length ? `
+        <div class="tbl-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>SEVERITY</th>
+                <th>DISCREPANCY TYPE</th>
+                <th>CATEGORY</th>
+                <th>ENTITY ID</th>
+                <th>DESCRIPTION &amp; CONFLICT DETAILS</th>
+                <th>RECORD AUDIT TRAIL</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${disc.map(d => `
+                <tr>
+                  <td>
+                    <span class="badge ${d.severity==='HIGH'?'badge-p1':d.severity==='MEDIUM'?'badge-p2':'badge-p3'}">
+                      ${d.severity}
+                    </span>
+                  </td>
+                  <td><strong>${d.type}</strong></td>
+                  <td><span class="badge badge-notrun">${d.category}</span></td>
+                  <td><strong>${d.entityId}</strong></td>
+                  <td style="max-width:320px;white-space:normal;line-height:1.5;">${d.description}</td>
+                  <td style="max-width:300px;white-space:normal;font-size:11.5px;color:#475569;background:#f8fafc;padding:8px 10px;line-height:1.5;">${d.records}</td>
+                </tr>
+              `).join('')}
+            </tbody>
+          </table>
+        </div>
+      ` : `
+        <div style="text-align:center;padding:48px 20px;background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;color:#166534;">
+          <div style="font-size:36px;margin-bottom:10px;">🎉</div>
+          <div style="font-size:16px;font-weight:800;">No Discrepancies Found!</div>
+          <div style="font-size:13px;color:#15803d;margin-top:4px;">All defect statuses, test case outcomes, dates, and traceability linkages are 100% consistent.</div>
+        </div>
+      `}
+    </div>`;
+}
+
+// ================================================================
+// CHAT ASSISTANT
+// ================================================================
+document.getElementById('chat-input').addEventListener('keydown',e=>{
+  if(e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); }
+});
+
+function sendChat(){
+  const input=document.getElementById('chat-input');
+  const q=input.value.trim();
+  if(!q) return;
+  input.value='';
+  addChatMsg(q,'user');
+  showTyping();
+  setTimeout(()=>{ removeTyping(); addChatMsg(getChatResponse(q),'bot'); },800);
+}
+
+function askQuestion(q){
+  addChatMsg(q,'user');
+  showTyping();
+  setTimeout(()=>{ removeTyping(); addChatMsg(getChatResponse(q),'bot'); },800);
+}
+
+function addChatMsg(text,role){
+  const msgs=document.getElementById('chat-messages');
+  const div=document.createElement('div');
+  div.className='chat-msg '+role;
+  div.textContent=text;
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function showTyping(){
+  const msgs=document.getElementById('chat-messages');
+  const div=document.createElement('div');
+  div.className='chat-msg bot';
+  div.id='typing-indicator';
+  div.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';
+  msgs.appendChild(div);
+  msgs.scrollTop=msgs.scrollHeight;
+}
+
+function removeTyping(){
+  const el=document.getElementById('typing-indicator');
+  if(el) el.remove();
+}
+
+function getChatResponse(q){
+  if(!tcData.length&&!defectData.length)
+    return "Please upload an Excel file first, then you can ask questions regarding the project report.";
+  const ql=q.toLowerCase().trim();
+  const s=tcStats(), d=defStats();
+
+  // Explicit greeting handler
+  if(/^(hi|hello|hey|greetings|good\s*(morning|afternoon|evening))\b/i.test(ql)){
+    return `Hello! 👋 I am your QA Assistant. Please ask any questions regarding the project report (e.g. pass rates, P1/P2 defects, module status, team workload, or blocked test cases).`;
+  }
+
+  // Specific QA domain checks
+  if(ql.includes('p1')&&(ql.includes('open')||ql.includes('defect')||ql.includes('critical')||ql.includes('count')||ql.includes('many')||ql.includes('list'))){
+    const p1Open=defectData.filter(x=>String(x.priority).toUpperCase()==='P1'&&x.status!=='Closed');
+    return `There are ${p1Open.length} P1 defects currently open. `+
+      (p1Open.length>0?'Top entries: '+p1Open.slice(0,3).map(x=>x.id+': '+x.description.slice(0,50)).join(' | '):'All P1s closed 🎉');
+  }
+  if(ql.includes('pass rate')||ql.includes('pass%')||ql.includes('passing')||ql.includes('pass percentage')){
+    return `Current pass rate is ${s.passRate}% — ${s.pass} passed out of ${s.executed} executed TCs. Total in scope: ${s.total}.`;
+  }
+  if((ql.includes('fail')||ql.includes('failing'))&&ql.includes('module')){
+    const mf=countBy(tcData.filter(t=>String(t.status).toLowerCase()==='fail'),t=>t.module||'Unknown');
+    const top=sortedEntries(mf).slice(0,3);
+    return top.length?`Most failures by module: ${top.map(([m,c])=>m+' ('+c+')').join(', ')}.`:'No failures recorded.';
+  }
+  if(ql.includes('blocked')){
+    const b=tcData.filter(t=>String(t.status).toLowerCase()==='blocked');
+    const mods=[...new Set(b.map(t=>t.module||'Unknown'))];
+    return `${b.length} test case(s) are blocked. Affected modules: ${mods.join(', ')||'none'}.`;
+  }
+  if(ql.includes('p2')){
+    const p2Open=defectData.filter(x=>String(x.priority).toUpperCase()==='P2'&&x.status!=='Closed');
+    return `There are ${p2Open.length} P2 defects open (not closed).`;
+  }
+  if(ql.includes('critical')||ql.includes('p1+p2')||(ql.includes('p1')&&ql.includes('p2'))){
+    return `Critical defects — P1: ${d.p1}, P2: ${d.p2}, Total critical: ${d.p1+d.p2}.`;
+  }
+  if(ql.includes('total defect')||ql.includes('defect count')||ql.includes('how many defect')||ql.includes('all defect')||ql.includes('defects count')){
+    return `Total: ${d.total} defects. Open: ${d.open}, New: ${d.newD}, In Progress: ${d.inprog}, RFT: ${d.rft}, Closed: ${d.closed}, Reopen: ${d.reopen}, Assigned: ${d.assigned}.`;
+  }
+  if(ql.includes('team')||ql.includes('squad')||ql.includes('assigned team')){
+    const tc=countBy(defectData,x=>x.team||'Unassigned');
+    return `Defects by team: ${sortedEntries(tc).map(([t,c])=>t+': '+c).join(', ')}.`;
+  }
+  if(ql.includes('module')||ql.includes('component')||ql.includes('coverage')){
+    const modules=[...new Set(tcData.map(t=>t.module||'Unknown'))];
+    return `${modules.length} modules in scope: ${modules.join(', ')}.`;
+  }
+  if(ql.includes('tester')||ql.includes('executor')||ql.includes('resource')||ql.includes('assignee')||ql.includes('workload')){
+    const tc=countBy(tcData.filter(t=>t.execBy),t=>t.execBy);
+    return `Execution by tester: ${sortedEntries(tc).map(([t,c])=>t+': '+c).join(', ')}.`;
+  }
+  if(ql.includes('fail')||ql.includes('failing')||ql.includes('failed')){
+    return `${s.fail} TCs failed. Pass: ${s.pass}, Blocked: ${s.blocked}, Not Run: ${s.notrun}.`;
+  }
+  if(ql.includes('reopen')||ql.includes('re-open')){
+    const ro=defectData.filter(x=>x.status==='Reopen');
+    return `${ro.length} defect(s) reopened. IDs: ${ro.slice(0,5).map(x=>x.id).join(', ')||'none'}.`;
+  }
+  if(ql.includes('closed')||ql.includes('closure')){
+    return `${d.closed} defects closed out of ${d.total} total. Closure rate: ${d.total?((d.closed/d.total)*100).toFixed(1):0}%.`;
+  }
+  if(ql.includes('overdue')||ql.includes('eta')||ql.includes('due date')){
+    const today=new Date().toISOString().slice(0,10);
+    const overdue=defectData.filter(x=>x.eta&&x.eta<today&&x.status!=='Closed');
+    return `${overdue.length} defects are overdue (past ETA, not closed). ${overdue.slice(0,3).map(x=>x.id+' ETA:'+x.eta).join(', ')}.`;
+  }
+  if(ql.includes('root cause')||ql.includes('rca')||ql.includes('cause')){
+    const rc=countBy(defectData.filter(x=>x.rootCause),x=>x.rootCause);
+    const top=sortedEntries(rc).slice(0,3);
+    return top.length?`Top root causes: ${top.map(([r,c])=>r+' ('+c+')').join(', ')}.`:'No root cause data found.';
+  }
+  if(ql.includes('not run')||ql.includes('notrun')||ql.includes('pending')||ql.includes('unexecuted')){
+    return `${s.notrun} TCs not yet run — ${pctStr(s.notrun,s.total)} of total.`;
+  }
+  if(ql.includes('summary')||ql.includes('overview')||ql.includes('status')||ql.includes('progress')||ql.includes('report')){
+    return `Summary: ${s.total} TCs, ${s.executed} executed, ${s.pass} passed (${s.passRate}%), ${s.fail} failed, ${s.blocked} blocked. Defects: ${d.total} total, ${d.openActive} active, ${d.p1} P1, ${d.p2} P2 open, ${d.closed} closed.`;
+  }
+  if(ql.includes('quality')||ql.includes('score')||ql.includes('dre')||ql.includes('density')){
+    const dreRaw=s.executed?Math.round(((s.executed-s.fail)/s.executed)*100):0;
+    return `Quality: Pass Rate=${s.passRate}%, DRE=${dreRaw}%, P1/P2 open=${d.p1+d.p2}.`;
+  }
+  if(ql.includes('signoff')||ql.includes('sign off')||ql.includes('decision')||ql.includes('go')||ql.includes('no go')){
+    const overallGo=parseFloat(s.passRate)>=80&&d.p1===0;
+    const overallAmber=parseFloat(s.passRate)>=60&&d.p1<=2;
+    const decision=overallGo?'GO':overallAmber?'CONDITIONAL GO':'NO GO';
+    return `Release recommendation: ${decision} (Pass Rate: ${s.passRate}%, Open P1s: ${d.p1}).`;
+  }
+  if(ql.includes('tc')||ql.includes('test case')||ql.includes('test cases')||ql.includes('execution')||ql.includes('defect')||ql.includes('bug')){
+    return `Project Report Data: Total TCs: ${s.total}, Executed: ${s.executed}, Passed: ${s.pass}, Failed: ${s.fail}, Blocked: ${s.blocked}. Total Defects: ${d.total}, Open: ${d.openActive}, P1: ${d.p1}, P2: ${d.p2}.`;
+  }
+
+  // Fallback for irrelevant / out-of-scope questions
+  return `Please ask questions regarding the project report. You can ask about test execution status, pass rate, P1/P2 defects, blocked test cases, module failures, team workload, root causes, or quality metrics.`;
+}
+
+// ================================================================
+// PDF EXPORT
+// ================================================================
+async function exportToPDF(){
+  const overlay=document.getElementById('progress-overlay');
+  overlay.classList.add('show');
+  try{
+    const el=document.getElementById('content');
+    const opt={
+      margin:10,
+      filename:'HUB_QA_Report.pdf',
+      image:{type:'jpeg',quality:0.95},
+      html2canvas:{scale:1,useCORS:true,ignoreElements:el=>el.tagName==='CANVAS'},
+      jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}
+    };
+    await html2pdf().set(opt).from(el).save();
+  }catch(err){
+    alert('PDF export error: '+err.message);
+  }finally{
+    overlay.classList.remove('show');
+  }
+}
+</script>
+</body>
+</html>

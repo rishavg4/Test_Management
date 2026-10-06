@@ -1,0 +1,1284 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+<title>Defect Management Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+<style>
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,'Segoe UI',sans-serif;font-size:14px;color:#1e293b;background:#f1f4f9}
+::-webkit-scrollbar{width:4px;height:4px}
+::-webkit-scrollbar-track{background:#f1f5f9}
+::-webkit-scrollbar-thumb{background:#38bdf8;border-radius:4px}
+::-webkit-scrollbar-thumb:hover{background:#0284c7}
+
+/* ── Layout ── */
+#app{display:flex;height:100vh;overflow:hidden}
+#nav{width:220px;min-width:220px;background:#1e293b;display:flex;flex-direction:column;z-index:10}
+#main{flex:1;display:flex;flex-direction:column;overflow:hidden}
+#chat-sidebar{width:380px;min-width:380px;background:#fff;box-shadow:-4px 0 16px rgba(0,0,0,.10);display:flex;flex-direction:column;z-index:10}
+
+/* ── Nav ── */
+#nav-logo{padding:20px 18px 16px;border-bottom:1px solid #334155;color:#f8fafc;font-size:16px;font-weight:700;letter-spacing:.3px}
+#nav-logo span{opacity:.6;font-size:11px;display:block;font-weight:400;margin-top:2px}
+.nav-item{padding:12px 18px;color:#94a3b8;cursor:pointer;border-left:3px solid transparent;transition:all .2s;font-size:13px;display:flex;align-items:center;gap:10px;user-select:none}
+.nav-item:hover{background:#334155;color:#f1f5f9}
+.nav-item.active{background:#1d4ed8;color:#fff;border-left-color:#38bdf8}
+.nav-item .nav-icon{font-size:16px;width:20px;text-align:center}
+#nav-footer{margin-top:auto;padding:14px 18px;color:#475569;font-size:11px;border-top:1px solid #334155}
+
+/* ── Main header toolbar ── */
+#toolbar{background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 20px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#toolbar h1{font-size:15px;font-weight:700;color:#1e293b;flex:1}
+.btn{padding:7px 14px;border:none;border-radius:8px;cursor:pointer;font-size:13px;font-weight:500;transition:all .2s;display:inline-flex;align-items:center;gap:6px}
+.btn-sm{padding:5px 10px;font-size:12px}
+.btn-primary{background:#1d4ed8;color:#fff}
+.btn-primary:hover{background:#1e40af}
+.btn-teal{background:#0d9488;color:#fff}
+.btn-teal:hover{background:#0f766e}
+.btn-outline{background:#fff;color:#475569;border:1px solid #cbd5e1}
+.btn-outline:hover{background:#f8fafc}
+.btn-danger{background:#dc2626;color:#fff}
+.btn-danger:hover{background:#b91c1c}
+.btn-orange{background:#ea580c;color:#fff}
+.btn-orange:hover{background:#c2410c}
+
+/* ── Report meta form ── */
+#meta-bar{background:#fff;border-bottom:1px solid #e2e8f0;padding:10px 20px;flex-shrink:0}
+#meta-toggle{cursor:pointer;font-size:12px;color:#64748b;display:flex;align-items:center;gap:6px;user-select:none}
+#meta-form{display:grid;grid-template-columns:repeat(6,1fr);gap:10px;margin-top:10px}
+#meta-form input{border:1px solid #cbd5e1;border-radius:6px;padding:6px 10px;font-size:12px;color:#1e293b;width:100%}
+#meta-form input:focus{outline:none;border-color:#38bdf8}
+
+/* ── Content area ── */
+#content{flex:1;overflow-y:auto;padding:20px}
+
+/* ── Upload zone ── */
+#upload-zone{display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:60vh}
+#drop-area{border:2px dashed #94a3b8;border-radius:16px;padding:60px 40px;text-align:center;background:#fff;cursor:pointer;transition:all .2s;max-width:540px;width:100%}
+#drop-area:hover,#drop-area.drag-over{border-color:#38bdf8;background:#f0f9ff}
+#drop-area .upload-icon{font-size:56px;margin-bottom:16px}
+#drop-area h2{font-size:18px;font-weight:600;color:#1e293b;margin-bottom:8px}
+#drop-area p{color:#64748b;font-size:13px;margin-bottom:20px}
+#file-input{display:none}
+.sample-btn-wrap{margin-top:16px;text-align:center}
+
+/* ── KPI Cards ── */
+#kpi-row{display:grid;grid-template-columns:repeat(8,1fr);gap:12px;margin-bottom:20px}
+.kpi-card{background:#fff;border-radius:12px;padding:14px 16px;box-shadow:0 1px 4px rgba(0,0,0,.08);border-top:4px solid #94a3b8;cursor:pointer;transition:transform .2s,box-shadow .2s;position:relative;overflow:hidden}
+.kpi-card:hover{transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.12)}
+.kpi-card .kpi-num{font-size:28px;font-weight:700;line-height:1}
+.kpi-card .kpi-label{font-size:11px;color:#64748b;margin-top:4px;font-weight:500}
+.kpi-card .kpi-badge{position:absolute;top:10px;right:10px;padding:2px 7px;border-radius:20px;font-size:10px;font-weight:700;color:#fff}
+.kpi-new{border-top-color:#6366f1}
+.kpi-open{border-top-color:#f59e0b}
+.kpi-inprog{border-top-color:#3b82f6}
+.kpi-retest{border-top-color:#8b5cf6}
+.kpi-closed{border-top-color:#22c55e}
+.kpi-p1{border-top-color:#ef4444}
+.kpi-p2{border-top-color:#f97316}
+.kpi-total{border-top-color:#1d4ed8}
+
+/* ── Charts row ── */
+#charts-row{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+.chart-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.chart-card h3{font-size:13px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+.chart-canvas-wrap{position:relative;height:220px}
+
+/* ── Trend chart ── */
+#trend-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08);margin-bottom:20px}
+#trend-card h3{font-size:13px;font-weight:600;color:#475569;margin-bottom:12px;text-transform:uppercase;letter-spacing:.5px}
+#trend-canvas-wrap{position:relative;height:240px}
+
+/* ── Focus area ── */
+#focus-card{background:#1e293b;border-left:4px solid #f97316;border-radius:12px;padding:16px;margin-bottom:20px}
+#focus-card h3{color:#f97316;font-size:13px;font-weight:700;margin-bottom:12px}
+#focus-table-wrap{overflow-x:auto;max-height:300px;overflow-y:auto}
+
+/* ── Tables ── */
+.data-table{width:100%;border-collapse:collapse;font-size:12px}
+.data-table thead th{background:#1e293b;color:#f8fafc;padding:9px 12px;text-align:left;font-weight:600;position:sticky;top:0;white-space:nowrap;z-index:2}
+.data-table tbody tr:nth-child(even){background:#f8fafc}
+.data-table tbody tr:hover{background:#e0f2fe}
+.data-table tbody td{padding:8px 12px;border-bottom:1px solid #f1f5f9;vertical-align:top}
+.focus-table thead th{background:#334155}
+.focus-table tbody tr:nth-child(even){background:rgba(255,255,255,.05)}
+.focus-table tbody tr:hover{background:rgba(255,255,255,.1)}
+.focus-table tbody td{color:#cbd5e1;border-bottom:1px solid rgba(255,255,255,.06)}
+
+/* ── Badges ── */
+.badge{display:inline-block;padding:2px 9px;border-radius:20px;font-size:11px;font-weight:600;white-space:nowrap}
+.badge-p1{background:#fef2f2;color:#dc2626;border:1px solid #fecaca}
+.badge-p2{background:#fff7ed;color:#ea580c;border:1px solid #fed7aa}
+.badge-p3{background:#fefce8;color:#ca8a04;border:1px solid #fef08a}
+.badge-p4{background:#f0fdf4;color:#16a34a;border:1px solid #bbf7d0}
+.badge-new{background:#ede9fe;color:#7c3aed;border:1px solid #ddd6fe}
+.badge-open{background:#fff7ed;color:#c2410c;border:1px solid #fed7aa}
+.badge-inprog{background:#eff6ff;color:#1d4ed8;border:1px solid #bfdbfe}
+.badge-retest{background:#f5f3ff;color:#6d28d9;border:1px solid #ddd6fe}
+.badge-closed{background:#f0fdf4;color:#15803d;border:1px solid #bbf7d0}
+.badge-reopen{background:#fef9c3;color:#854d0e;border:1px solid #fef08a}
+.badge-assigned{background:#e0f2fe;color:#0369a1;border:1px solid #bae6fd}
+
+/* ── Filter bar ── */
+#filter-bar{background:#fff;border-radius:12px;padding:14px 16px;margin-bottom:16px;display:flex;flex-wrap:wrap;gap:10px;align-items:center;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+#filter-bar input,#filter-bar select{border:1px solid #cbd5e1;border-radius:8px;padding:7px 12px;font-size:13px;color:#1e293b;outline:none;transition:border-color .2s}
+#filter-bar input:focus,#filter-bar select:focus{border-color:#38bdf8}
+#filter-bar input{min-width:200px}
+.count-badge{background:#1d4ed8;color:#fff;padding:3px 10px;border-radius:20px;font-size:12px;font-weight:600;margin-left:auto}
+
+/* ── Pagination ── */
+#pagination{display:flex;align-items:center;gap:6px;padding:12px 0;justify-content:center}
+.page-btn{padding:5px 11px;border:1px solid #cbd5e1;border-radius:6px;background:#fff;cursor:pointer;font-size:12px;transition:all .2s}
+.page-btn:hover{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.page-btn.active{background:#1d4ed8;color:#fff;border-color:#1d4ed8}
+.page-btn:disabled{opacity:.4;cursor:not-allowed}
+
+/* ── Analytics ── */
+#analytics-rca{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin-bottom:20px}
+#analytics-age{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+#analytics-team{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:20px}
+#analytics-trend{margin-bottom:20px}
+.insight-card{background:#fff;border-radius:12px;padding:16px;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+.insight-item{padding:10px 0;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;gap:10px}
+.insight-item:last-child{border-bottom:none}
+.insight-rank{width:28px;height:28px;border-radius:50%;background:#1d4ed8;color:#fff;font-size:12px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+.insight-text{flex:1}
+.insight-text .name{font-weight:600;font-size:13px}
+.insight-text .sub{color:#64748b;font-size:11px}
+.trend-up{color:#ef4444}
+.trend-down{color:#22c55e}
+
+/* ── Collapsible RCA groups ── */
+.rca-group-header{background:#f8fafc;cursor:pointer;font-weight:600;font-size:13px;padding:10px 14px;border-bottom:1px solid #e2e8f0;display:flex;align-items:center;gap:8px;user-select:none}
+.rca-group-header:hover{background:#e0f2fe}
+.rca-group-header .arrow{transition:transform .2s;font-style:normal;font-size:10px}
+.rca-group-header.open .arrow{transform:rotate(90deg)}
+.rca-group-rows{display:none}
+.rca-group-rows.open{display:table-row-group}
+
+/* ── Modal ── */
+#modal-overlay{position:fixed;inset:0;background:rgba(0,0,0,.55);z-index:1000;display:none;align-items:center;justify-content:center;padding:20px}
+#modal-overlay.open{display:flex}
+#modal-box{background:#fff;border-radius:16px;max-width:860px;width:100%;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,.3)}
+#modal-header{background:#1e293b;color:#f8fafc;padding:16px 22px;border-radius:16px 16px 0 0;display:flex;align-items:center;justify-content:space-between}
+#modal-header h2{font-size:15px;font-weight:700}
+#modal-close{background:none;border:none;color:#94a3b8;font-size:22px;cursor:pointer;line-height:1;padding:0}
+#modal-close:hover{color:#fff}
+#modal-body{padding:22px;display:grid;grid-template-columns:1fr 1fr;gap:20px}
+.modal-field{margin-bottom:12px}
+.modal-field .field-label{font-size:11px;font-weight:600;color:#64748b;text-transform:uppercase;letter-spacing:.5px;margin-bottom:4px}
+.modal-field .field-val{font-size:14px;color:#1e293b}
+.modal-footer{padding:14px 22px;border-top:1px solid #e2e8f0;display:flex;gap:10px;justify-content:flex-end}
+#modal-id-big{font-size:26px;font-weight:800;color:#0d9488;margin-bottom:10px}
+
+/* ── Chat Sidebar ── */
+#chat-header{background:#1e293b;color:#f8fafc;padding:14px 16px;display:flex;align-items:center;gap:10px;flex-shrink:0}
+#chat-header h2{font-size:14px;font-weight:700;flex:1}
+.status-dot{width:8px;height:8px;background:#22c55e;border-radius:50%;animation:pulse-dot 2s infinite}
+@keyframes pulse-dot{0%,100%{opacity:1;transform:scale(1)}50%{opacity:.6;transform:scale(1.3)}}
+#chat-messages{flex:1;overflow-y:auto;padding:14px;background:#f8fafc;display:flex;flex-direction:column;gap:10px}
+.chat-msg{max-width:88%;padding:9px 13px;border-radius:12px;font-size:13px;line-height:1.5;animation:slide-in .2s ease}
+@keyframes slide-in{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+.chat-msg.bot{align-self:flex-start;background:#fff;box-shadow:0 1px 4px rgba(0,0,0,.08);border-radius:4px 12px 12px 12px}
+.chat-msg.user{align-self:flex-end;background:#0d9488;color:#fff;border-radius:12px 4px 12px 12px}
+.chat-msg table{border-collapse:collapse;font-size:11px;margin-top:6px;width:100%}
+.chat-msg table th{background:#1e293b;color:#f8fafc;padding:4px 8px;text-align:left}
+.chat-msg table td{padding:4px 8px;border-bottom:1px solid #e2e8f0}
+.chat-chips{display:flex;flex-wrap:wrap;gap:6px;padding:10px 14px;flex-shrink:0}
+.chat-chip{padding:5px 12px;border:1px solid #cbd5e1;border-radius:20px;font-size:12px;cursor:pointer;background:#fff;transition:all .2s;color:#475569}
+.chat-chip:hover{background:#0d9488;color:#fff;border-color:#0d9488}
+#chat-input-area{padding:12px 14px;border-top:1px solid #e2e8f0;display:flex;gap:8px;flex-shrink:0}
+#chat-input{flex:1;border:1px solid #cbd5e1;border-radius:8px;padding:8px 12px;font-size:13px;outline:none;resize:none;height:38px;font-family:inherit}
+#chat-input:focus{border-color:#38bdf8}
+#chat-send{background:#0d9488;color:#fff;border:none;border-radius:8px;padding:8px 14px;cursor:pointer;font-size:14px;transition:background .2s}
+#chat-send:hover{background:#0f766e}
+.typing-dots{display:flex;gap:4px;align-items:center;padding:4px 2px}
+.typing-dots span{width:7px;height:7px;background:#94a3b8;border-radius:50%;animation:blink .9s infinite}
+.typing-dots span:nth-child(2){animation-delay:.2s}
+.typing-dots span:nth-child(3){animation-delay:.4s}
+@keyframes blink{0%,80%,100%{opacity:.2}40%{opacity:1}}
+
+/* ── Loading overlay ── */
+#loading-overlay{position:fixed;inset:0;background:rgba(255,255,255,.88);z-index:2000;display:none;align-items:center;justify-content:center;flex-direction:column;gap:14px}
+#loading-overlay.show{display:flex}
+.spinner{width:44px;height:44px;border:4px solid #e2e8f0;border-top-color:#1d4ed8;border-radius:50%;animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* ── Age colors ── */
+.age-red{color:#dc2626;font-weight:600}
+.age-orange{color:#ea580c;font-weight:600}
+.age-green{color:#16a34a;font-weight:600}
+
+/* ── Section headers ── */
+.section-hdr{font-size:13px;font-weight:700;color:#475569;text-transform:uppercase;letter-spacing:.6px;margin-bottom:12px;margin-top:2px;border-bottom:2px solid #e2e8f0;padding-bottom:6px}
+.table-wrap{background:#fff;border-radius:12px;box-shadow:0 1px 4px rgba(0,0,0,.08);overflow:hidden;margin-bottom:16px}
+.table-scroll{overflow-x:auto;overflow-y:auto;max-height:380px}
+
+/* ── Tab content ── */
+.tab-pane{display:none}
+.tab-pane.active{display:block}
+
+/* ── Action button in table ── */
+.btn-icon{background:#e0f2fe;color:#0369a1;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:12px;transition:background .2s}
+.btn-icon:hover{background:#0369a1;color:#fff}
+
+/* ── Toolbar hidden pre-data ── */
+.hidden{display:none!important}
+
+/* ── Progress bar for PDF ── */
+#pdf-overlay{position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:3000;display:none;align-items:center;justify-content:center}
+#pdf-overlay.show{display:flex}
+#pdf-box{background:#fff;border-radius:16px;padding:32px;text-align:center;min-width:280px}
+#pdf-box h3{font-size:16px;font-weight:700;margin-bottom:16px;color:#1e293b}
+.progress-bar{height:8px;background:#e2e8f0;border-radius:4px;overflow:hidden}
+.progress-fill{height:100%;background:#1d4ed8;border-radius:4px;transition:width .4s}
+</style>
+</head>
+<body>
+<div id="app">
+
+  <!-- ══ LEFT NAV ══ -->
+  <nav id="nav">
+    <div id="nav-logo">🐞 Defect Hub<span>IBM / Banking Delivery</span></div>
+    <div class="nav-item active" data-tab="overview" onclick="switchTab('overview')"><span class="nav-icon">📊</span>Overview</div>
+    <div class="nav-item" data-tab="defects" onclick="switchTab('defects')"><span class="nav-icon">🗂️</span>Defect List</div>
+    <div class="nav-item" data-tab="analytics" onclick="switchTab('analytics')"><span class="nav-icon">🔬</span>Analytics</div>
+    <div id="nav-footer">v1.0 · Defect Management</div>
+  </nav>
+
+  <!-- ══ MAIN ══ -->
+  <div id="main">
+    <!-- toolbar -->
+    <div id="toolbar">
+      <h1 id="toolbar-title">Defect Management Dashboard</h1>
+      <button class="btn btn-outline btn-sm hidden" id="btn-refresh" onclick="refreshDashboard()">🔄 Refresh</button>
+      <button class="btn btn-orange btn-sm hidden" id="btn-pdf" onclick="exportPDF()">📄 Export PDF</button>
+      <button class="btn btn-outline btn-sm hidden" id="btn-new-upload" onclick="resetUpload()">📂 Upload New File</button>
+    </div>
+    <!-- meta bar -->
+    <div id="meta-bar" class="hidden">
+      <div id="meta-toggle" onclick="toggleMeta()">▶ Report Details <span id="meta-arrow">▼</span></div>
+      <div id="meta-form" style="display:none">
+        <input id="m-project" placeholder="Project Name"/>
+        <input id="m-app" placeholder="Application"/>
+        <input id="m-sprint" placeholder="Sprint / Release"/>
+        <input id="m-period" placeholder="Period (e.g. Q3 2025)"/>
+        <input id="m-by" placeholder="Prepared By"/>
+        <input id="m-rev" placeholder="Reviewed By"/>
+        <button class="btn btn-primary btn-sm" onclick="applyMeta()">✔ Apply</button>
+      </div>
+    </div>
+
+    <!-- content -->
+    <div id="content">
+
+      <!-- ── UPLOAD ZONE ── -->
+      <div id="upload-zone">
+        <div id="drop-area" onclick="document.getElementById('file-input').click()"
+             ondragover="event.preventDefault();this.classList.add('drag-over')"
+             ondragleave="this.classList.remove('drag-over')"
+             ondrop="handleDrop(event)">
+          <div class="upload-icon">📂</div>
+          <h2>Drop your Defect Excel here</h2>
+          <p>Drag &amp; drop your .xlsx file, or click to browse<br/>Supports columns: Defect ID, Priority, Status, Team, RCA…</p>
+          <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('file-input').click()">📁 Browse File</button>
+        </div>
+        <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])"/>
+        <div class="sample-btn-wrap">
+          <button class="btn btn-teal" style="margin-top:14px" onclick="loadSampleData()">🎲 Load Sample Data (50 defects)</button>
+        </div>
+      </div>
+
+      <!-- ── DASHBOARD CONTENT ── -->
+      <div id="dashboard" class="hidden">
+
+        <!-- TAB: OVERVIEW -->
+        <div class="tab-pane active" id="tab-overview">
+          <div id="kpi-row"></div>
+          <div id="charts-row">
+            <div class="chart-card"><h3>Status Distribution</h3><div class="chart-canvas-wrap"><canvas id="ch-status"></canvas></div></div>
+            <div class="chart-card"><h3>Priority Breakdown</h3><div class="chart-canvas-wrap"><canvas id="ch-priority"></canvas></div></div>
+            <div class="chart-card"><h3>Team Workload (Open)</h3><div class="chart-canvas-wrap"><canvas id="ch-team"></canvas></div></div>
+          </div>
+          <div id="trend-card">
+            <h3>Defect Trend — Raised vs Closed</h3>
+            <div id="trend-canvas-wrap"><canvas id="ch-trend"></canvas></div>
+          </div>
+          <div id="focus-card">
+            <h3>⚠️ Focus Area — Critical &amp; High Priority Open Defects</h3>
+            <div id="focus-table-wrap">
+              <table class="data-table focus-table" id="focus-table">
+                <thead><tr><th>ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Raised On</th><th>Age (days)</th></tr></thead>
+                <tbody id="focus-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- TAB: DEFECT LIST -->
+        <div class="tab-pane" id="tab-defects">
+          <div id="filter-bar">
+            <input type="text" id="search-input" placeholder="🔍 Search ID or Description…" oninput="applyFilters()"/>
+            <select id="filter-priority" onchange="applyFilters()"><option value="">All Priorities</option><option>P1</option><option>P2</option><option>P3</option><option>P4</option></select>
+            <select id="filter-status" onchange="applyFilters()">
+              <option value="">All Statuses</option>
+              <option>New</option><option>Open</option><option>In Progress</option><option>Ready for Retest</option><option>Closed</option><option>Reopen</option><option>Assigned</option>
+            </select>
+            <select id="filter-team" onchange="applyFilters()"><option value="">All Teams</option></select>
+            <button class="btn btn-outline btn-sm" onclick="clearFilters()">✕ Clear Filters</button>
+            <span class="count-badge" id="count-badge">0 defects</span>
+          </div>
+          <div class="table-wrap">
+            <div class="table-scroll">
+              <table class="data-table" id="defect-table">
+                <thead><tr><th>#</th><th>Defect ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Raised On</th><th>ETA</th><th>Closed On</th><th>Root Cause</th><th>Actions</th></tr></thead>
+                <tbody id="defect-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div id="pagination"></div>
+        </div>
+
+        <!-- TAB: ANALYTICS -->
+        <div class="tab-pane" id="tab-analytics">
+          <div class="section-hdr">Root Cause Analysis</div>
+          <div id="analytics-rca">
+            <div class="chart-card"><h3>RCA Distribution</h3><div class="chart-canvas-wrap"><canvas id="ch-rca-dist"></canvas></div></div>
+            <div class="chart-card"><h3>Closed by Root Cause</h3><div class="chart-canvas-wrap"><canvas id="ch-rca-closed"></canvas></div></div>
+            <div class="insight-card" id="rca-insights"><h3 style="font-size:12px;color:#475569;text-transform:uppercase;letter-spacing:.5px;margin-bottom:10px">Top Root Causes</h3><div id="rca-insights-body"></div></div>
+          </div>
+          <div class="table-wrap" style="margin-bottom:20px">
+            <div class="table-scroll">
+              <table class="data-table" id="rca-group-table">
+                <thead><tr><th>Root Cause</th><th>Count</th><th>% of Total</th><th>P1</th><th>P2</th><th>Closed</th></tr></thead>
+                <tbody id="rca-group-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="section-hdr">Defect Age Analysis</div>
+          <div id="analytics-age">
+            <div class="chart-card"><h3>Age Bucket Distribution</h3><div class="chart-canvas-wrap"><canvas id="ch-age"></canvas></div></div>
+            <div class="table-wrap" style="margin-bottom:0">
+              <div style="padding:12px 16px;font-size:12px;font-weight:700;color:#475569;background:#fff;border-bottom:1px solid #e2e8f0">Top 10 Oldest Open Defects</div>
+              <div class="table-scroll" style="max-height:260px">
+                <table class="data-table" id="age-table"><thead><tr><th>ID</th><th>Description</th><th>Priority</th><th>Raised On</th><th>Age (days)</th></tr></thead><tbody id="age-tbody"></tbody></table>
+              </div>
+            </div>
+          </div>
+          <div class="section-hdr">Team Performance</div>
+          <div id="analytics-team">
+            <div class="chart-card"><h3>Resolved Defects per Team</h3><div class="chart-canvas-wrap"><canvas id="ch-team-perf"></canvas></div></div>
+            <div class="table-wrap" style="margin-bottom:0">
+              <div class="table-scroll" style="max-height:300px">
+                <table class="data-table" id="team-table"><thead><tr><th>Team</th><th>Total</th><th>Open</th><th>Closed</th><th>Resolution %</th></tr></thead><tbody id="team-tbody"></tbody></table>
+              </div>
+            </div>
+          </div>
+          <div class="section-hdr">Priority Trend Over Time</div>
+          <div id="analytics-trend" class="chart-card">
+            <h3>Stacked Raised per Day by Priority</h3>
+            <div style="position:relative;height:260px"><canvas id="ch-prio-trend"></canvas></div>
+          </div>
+        </div>
+
+      </div><!-- /dashboard -->
+    </div><!-- /content -->
+  </div><!-- /main -->
+
+  <!-- ══ CHAT SIDEBAR ══ -->
+  <div id="chat-sidebar">
+    <div id="chat-header">
+      <div class="status-dot"></div>
+      <h2>🤖 QA Assistant</h2>
+    </div>
+    <div id="chat-messages"></div>
+    <div class="chat-chips" id="chat-chips">
+      <div class="chat-chip" onclick="sendChat('How many P1 defects are open?')">How many P1 defects are open?</div>
+      <div class="chat-chip" onclick="sendChat('Which team has most open defects?')">Which team has most open defects?</div>
+      <div class="chat-chip" onclick="sendChat('List all critical defects')">List all critical defects</div>
+      <div class="chat-chip" onclick="sendChat('Average age of open defects')">Average age of open defects</div>
+    </div>
+    <div id="chat-input-area">
+      <input type="text" id="chat-input" placeholder="Ask about your defects…" onkeydown="if(event.key==='Enter')sendChat()"/>
+      <button id="chat-send" onclick="sendChat()">➤</button>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- ══ MODAL ══ -->
+<div id="modal-overlay" onclick="if(event.target===this)closeModal()">
+  <div id="modal-box">
+    <div id="modal-header">
+      <h2>Defect Details</h2>
+      <button id="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modal-body"></div>
+    <div class="modal-footer">
+      <button class="btn btn-outline btn-sm" id="modal-copy" onclick="copyDefectId()">📋 Copy ID</button>
+      <button class="btn btn-teal btn-sm" onclick="closeModal()">Close</button>
+    </div>
+  </div>
+</div>
+
+<!-- ══ LOADING ══ -->
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <div style="color:#475569;font-size:14px">Processing data…</div>
+</div>
+
+<!-- ══ PDF OVERLAY ══ -->
+<div id="pdf-overlay">
+  <div id="pdf-box">
+    <h3>Generating PDF Report…</h3>
+    <div class="progress-bar"><div class="progress-fill" id="pdf-progress" style="width:0%"></div></div>
+    <p style="margin-top:12px;color:#64748b;font-size:12px">Please wait…</p>
+  </div>
+</div>
+
+<script>
+// ════════════════════════════════════════════════════
+//  STATE
+// ════════════════════════════════════════════════════
+let defectData = [];
+let filteredData = [];
+let currentPage = 1;
+const PAGE_SIZE = 20;
+let currentTab = 'overview';
+let currentModal = null;
+let metaOpen = false;
+
+// Chart instances
+const charts = {};
+
+// ════════════════════════════════════════════════════
+//  NORMALISATION HELPERS
+// ════════════════════════════════════════════════════
+function nk(k){ return String(k).toLowerCase().replace(/[\s_\-]/g,''); }
+function g(n,...keys){ for(const k of keys){ if(n[k]!=null && n[k]!=='') return n[k]; } return ''; }
+
+function extractYMD(v){
+  if(!v) return '';
+  if(v instanceof Date){
+    return v.getUTCFullYear()+'-'+String(v.getUTCMonth()+1).padStart(2,'0')+'-'+String(v.getUTCDate()).padStart(2,'0');
+  }
+  const s=String(v).trim();
+  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  const d=new Date(s);
+  if(!isNaN(d)) return extractYMD(d);
+  return s;
+}
+
+function normalizeDefect(row){
+  const n={};
+  Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  return {
+    id:          g(n,'defectid','defid','bugid','id'),
+    description: g(n,'description','desc','title','summary'),
+    priority:    normalizePriority(g(n,'priority','prio','p','sev','severity')),
+    status:      normalizeStatus(g(n,'status','state')),
+    raisedBy:    g(n,'raisedby','reportedby','createdby','raiser'),
+    assignedTo:  g(n,'assiedto','assignedto','owner','developer','assignee'),
+    team:        g(n,'assignedteam','team','squad','group'),
+    raisedOn:    extractYMD(g(n,'raisedon','reportedon','createdon','date')),
+    eta:         extractYMD(g(n,'eta','duedate','targetdate')),
+    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon')),
+    rootCause:   g(n,'rootcause','rca','cause','rc'),
+    comments:    g(n,'comments','comment','notes','remarks'),
+  };
+}
+
+function normalizePriority(p){
+  const s = String(p||'').trim().toUpperCase();
+  if(/^P1/.test(s)||s==='CRITICAL') return 'P1';
+  if(/^P2/.test(s)||s==='HIGH') return 'P2';
+  if(/^P3/.test(s)||s==='MEDIUM') return 'P3';
+  if(/^P4/.test(s)||s==='LOW') return 'P4';
+  return p||'P3';
+}
+
+function normalizeStatus(s){
+  const v = String(s||'').trim().toLowerCase();
+  if(v==='new') return 'New';
+  if(v==='open') return 'Open';
+  if(v.includes('progress')||v==='inprogress'||v==='wip') return 'In Progress';
+  if(v.includes('retest')||v.includes('ready')) return 'Ready for Retest';
+  if(v==='closed'||v==='done'||v==='fixed'||v==='resolved') return 'Closed';
+  if(v==='reopen'||v==='reopened') return 'Reopen';
+  if(v==='assigned') return 'Assigned';
+  return s||'Open';
+}
+
+// ════════════════════════════════════════════════════
+//  FILE UPLOAD / PARSING
+// ════════════════════════════════════════════════════
+function handleDrop(e){
+  e.preventDefault();
+  document.getElementById('drop-area').classList.remove('drag-over');
+  const f = e.dataTransfer.files[0];
+  if(f) handleFile(f);
+}
+
+function handleFile(file){
+  if(!file) return;
+  showLoading(true);
+  const reader = new FileReader();
+  reader.onload = function(e){
+    try{
+      const wb = XLSX.read(e.target.result,{type:'array',cellDates:true});
+      let sheet = wb.Sheets[wb.SheetNames[0]];
+      const named = wb.SheetNames.find(n=>n.toLowerCase().includes('defect'));
+      if(named) sheet = wb.Sheets[named];
+      const rows = XLSX.utils.sheet_to_json(sheet,{defval:''});
+      defectData = rows.map(normalizeDefect).filter(d=>d.id||d.description);
+      initDashboard();
+    } catch(err){
+      alert('Failed to parse file: '+err.message);
+    }
+    showLoading(false);
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function resetUpload(){
+  defectData=[];
+  filteredData=[];
+  document.getElementById('upload-zone').classList.remove('hidden');
+  document.getElementById('dashboard').classList.add('hidden');
+  document.getElementById('meta-bar').classList.add('hidden');
+  ['btn-refresh','btn-pdf','btn-new-upload'].forEach(id=>document.getElementById(id).classList.add('hidden'));
+  destroyAllCharts();
+}
+
+// ════════════════════════════════════════════════════
+//  SAMPLE DATA
+// ════════════════════════════════════════════════════
+function loadSampleData(){
+  const priorities=['P1','P2','P3','P4'];
+  const statuses=['New','Open','In Progress','Ready for Retest','Closed','Reopen','Assigned'];
+  const teams=['Core Banking','Digital','Payments','QA','DevOps','Mobile'];
+  const rcas=['Code Defect','Requirements Gap','Environment Issue','Data Issue','Config Error','Third Party','Design Flaw'];
+  const persons=['Alice','Bob','Charlie','Diana','Eve','Frank','Grace'];
+  const descriptions=[
+    'Login fails for corporate users on IE11',
+    'Fund transfer shows incorrect balance',
+    'OTP not delivered to new SIM numbers',
+    'Statement PDF generation crashes',
+    'Interest calculation off by 0.01%',
+    'Session timeout triggers duplicate transaction',
+    'Customer onboarding form validation missing',
+    'NEFT payment status stuck in pending',
+    'Mobile app crashes on iOS 17',
+    'Report export exceeds 10MB limit',
+    'Beneficiary addition fails for international IBAN',
+    'Duplicate debit when retry on timeout',
+    'Cheque imaging module not loading',
+    'Incorrect IFSC code lookup results',
+    'Two-factor auth bypass in dev environment',
+    'Loan EMI schedule PDF corrupted',
+    'Search feature returns stale cached data',
+    'Notification for dormant accounts not triggering',
+    'Account freeze API returns 500',
+    'Password policy enforcement missing special chars',
+    'Dashboard charts not rendering on Firefox',
+    'Transaction history pagination skips records',
+    'SWIFT message format validation error',
+    'Demat account linking fails silently',
+    'Print statement alignment broken',
+    'UPI collect request not expiring',
+    'Aadhaar verification timeout not handled',
+    'Credit card due date notification wrong',
+    'Chatbot escalation flow broken',
+    'SSO redirect loop on corporate portal',
+  ];
+  const today = new Date();
+  defectData = Array.from({length:50},(_,i)=>{
+    const raisedDaysAgo = Math.floor(Math.random()*60)+1;
+    const raisedOn = new Date(today); raisedOn.setDate(today.getDate()-raisedDaysAgo);
+    const st = statuses[Math.floor(Math.random()*statuses.length)];
+    const closedOn = (st==='Closed')? new Date(raisedOn.getTime()+(Math.floor(Math.random()*10)+1)*86400000) : null;
+    const etaDaysOut = Math.floor(Math.random()*20)-5;
+    const eta = new Date(today); eta.setDate(today.getDate()+etaDaysOut);
+    return {
+      id:'DEF-'+String(i+1).padStart(3,'0'),
+      description: descriptions[i%descriptions.length]+' (#'+(i+1)+')',
+      priority: priorities[Math.floor(Math.random()*priorities.length)],
+      status: st,
+      raisedBy: persons[Math.floor(Math.random()*persons.length)],
+      assignedTo: persons[Math.floor(Math.random()*persons.length)],
+      team: teams[Math.floor(Math.random()*teams.length)],
+      raisedOn: extractYMD(raisedOn),
+      eta: extractYMD(eta),
+      closedOn: closedOn? extractYMD(closedOn):'',
+      rootCause: rcas[Math.floor(Math.random()*rcas.length)],
+      comments: '',
+    };
+  });
+  initDashboard();
+}
+
+// ════════════════════════════════════════════════════
+//  INIT DASHBOARD
+// ════════════════════════════════════════════════════
+function initDashboard(){
+  document.getElementById('upload-zone').classList.add('hidden');
+  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('meta-bar').classList.remove('hidden');
+  ['btn-refresh','btn-pdf','btn-new-upload'].forEach(id=>document.getElementById(id).classList.remove('hidden'));
+  populateTeamFilter();
+  filteredData = [...defectData];
+  renderAll();
+  addBotMessage("✅ Loaded <b>"+defectData.length+" defects</b>. I'm ready to answer your questions!");
+}
+
+function refreshDashboard(){
+  filteredData = [...defectData];
+  renderAll();
+}
+
+function renderAll(){
+  renderKPIs();
+  renderFocusArea();
+  renderDefectTable();
+  setTimeout(()=>{
+    renderStatusChart();
+    renderPriorityChart();
+    renderTeamChart();
+    renderTrendChart();
+  },50);
+  if(currentTab==='analytics') setTimeout(renderAnalytics,80);
+}
+
+// ════════════════════════════════════════════════════
+//  KPI
+// ════════════════════════════════════════════════════
+function countStatus(s){ return defectData.filter(d=>d.status===s).length; }
+function countPriority(p){ return defectData.filter(d=>d.priority===p).length; }
+
+function renderKPIs(){
+  const total=defectData.length;
+  const kpis=[
+    {label:'Total Defects',val:total,cls:'kpi-total',filter:()=>true,title:'All Defects'},
+    {label:'New',val:countStatus('New'),cls:'kpi-new',filter:d=>d.status==='New',title:'New Defects'},
+    {label:'Open',val:countStatus('Open'),cls:'kpi-open',filter:d=>d.status==='Open',title:'Open Defects'},
+    {label:'In Progress',val:countStatus('In Progress'),cls:'kpi-inprog',filter:d=>d.status==='In Progress',title:'In Progress'},
+    {label:'Ready for Retest',val:countStatus('Ready for Retest'),cls:'kpi-retest',filter:d=>d.status==='Ready for Retest',title:'Ready for Retest'},
+    {label:'Closed',val:countStatus('Closed'),cls:'kpi-closed',filter:d=>d.status==='Closed',title:'Closed Defects'},
+    {label:'P1 Critical',val:countPriority('P1'),cls:'kpi-p1',filter:d=>d.priority==='P1',title:'P1 Critical Defects',badge:'P1',badgeCls:'background:#dc2626'},
+    {label:'P2 High',val:countPriority('P2'),cls:'kpi-p2',filter:d=>d.priority==='P2',title:'P2 High Defects',badge:'P2',badgeCls:'background:#f97316'},
+  ];
+  const row=document.getElementById('kpi-row');
+  row.innerHTML=kpis.map((k,i)=>`
+    <div class="kpi-card ${k.cls}" onclick="openFilteredDefects(${i})">
+      ${k.badge?`<div class="kpi-badge" style="${k.badgeCls}">${k.badge}</div>`:''}
+      <div class="kpi-num">${k.val}</div>
+      <div class="kpi-label">${k.label}</div>
+    </div>`).join('');
+  window._kpiFilters = kpis;
+}
+
+function openFilteredDefects(idx){
+  const kpi = window._kpiFilters[idx];
+  const data = defectData.filter(kpi.filter);
+  const html = buildFilteredPage(kpi.title, data);
+  const win = window.open('','_blank');
+  win.document.write(html);
+  win.document.close();
+}
+
+function buildFilteredPage(title, data){
+  const rows = data.map(d=>`<tr>
+    <td>${d.id}</td><td>${esc(d.description)}</td>
+    <td>${prioBadge(d.priority)}</td><td>${statusBadge(d.status)}</td>
+    <td>${esc(d.assignedTo)}</td><td>${esc(d.team)}</td>
+    <td>${d.raisedOn}</td><td>${d.eta}</td><td>${d.closedOn}</td>
+  </tr>`).join('');
+  return `<!DOCTYPE html><html><head><meta charset="UTF-8"><title>${title}</title>
+  <style>body{font-family:system-ui,sans-serif;padding:20px;color:#1e293b}
+  h1{font-size:18px;margin-bottom:16px}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th{background:#1e293b;color:#fff;padding:8px 12px;text-align:left}
+  td{padding:7px 12px;border-bottom:1px solid #e2e8f0}
+  tr:nth-child(even){background:#f8fafc}
+  .badge{padding:2px 8px;border-radius:20px;font-size:11px;font-weight:600}
+  .badge-p1{background:#fef2f2;color:#dc2626}.badge-p2{background:#fff7ed;color:#ea580c}
+  .badge-p3{background:#fefce8;color:#ca8a04}.badge-p4{background:#f0fdf4;color:#16a34a}
+  .badge-new{background:#ede9fe;color:#7c3aed}.badge-open{background:#fff7ed;color:#c2410c}
+  .badge-inprog{background:#eff6ff;color:#1d4ed8}.badge-retest{background:#f5f3ff;color:#6d28d9}
+  .badge-closed{background:#f0fdf4;color:#15803d}.badge-reopen{background:#fef9c3;color:#854d0e}
+  </style></head><body>
+  <h1>🐞 ${title} — ${data.length} defects</h1>
+  <table><thead><tr><th>ID</th><th>Description</th><th>Priority</th><th>Status</th><th>Assigned To</th><th>Team</th><th>Raised On</th><th>ETA</th><th>Closed On</th></tr></thead>
+  <tbody>${rows}</tbody></table></body></html>`;
+}
+
+// ════════════════════════════════════════════════════
+//  CHARTS
+// ════════════════════════════════════════════════════
+function destroyChart(id){ if(charts[id]){charts[id].destroy();delete charts[id];} }
+function destroyAllCharts(){ Object.keys(charts).forEach(id=>{charts[id].destroy();delete charts[id];}); }
+
+function mkChart(id,cfg){
+  destroyChart(id);
+  const ctx=document.getElementById(id);
+  if(!ctx) return;
+  charts[id]=new Chart(ctx,cfg);
+}
+
+function renderStatusChart(){
+  const statusColors={'New':'#818cf8','Open':'#fb923c','In Progress':'#60a5fa','Ready for Retest':'#a78bfa','Closed':'#4ade80','Reopen':'#fbbf24','Assigned':'#38bdf8'};
+  const counts={};
+  defectData.forEach(d=>{ counts[d.status]=(counts[d.status]||0)+1; });
+  const labels=Object.keys(counts), data=Object.values(counts);
+  const colors=labels.map(l=>statusColors[l]||'#94a3b8');
+  mkChart('ch-status',{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors,borderWidth:2,borderColor:'#fff'}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}}}});
+}
+
+function renderPriorityChart(){
+  const counts={P1:0,P2:0,P3:0,P4:0};
+  defectData.forEach(d=>{ if(counts[d.priority]!==undefined) counts[d.priority]++; });
+  mkChart('ch-priority',{type:'bar',data:{labels:['P1','P2','P3','P4'],datasets:[{label:'Count',data:[counts.P1,counts.P2,counts.P3,counts.P4],backgroundColor:['#ef4444','#f97316','#eab308','#22c55e'],borderRadius:6}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+}
+
+function renderTeamChart(){
+  const counts={};
+  defectData.filter(d=>d.status!=='Closed').forEach(d=>{
+    if(d.team) counts[d.team]=(counts[d.team]||0)+1;
+  });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const labels=sorted.map(x=>x[0]),data=sorted.map(x=>x[1]);
+  mkChart('ch-team',{type:'bar',data:{labels,datasets:[{label:'Open Defects',data,backgroundColor:'#3b82f6',borderRadius:4}]},options:{indexAxis:'y',responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{beginAtZero:true,ticks:{stepSize:1}}}}});
+}
+
+function renderTrendChart(){
+  const raised={},closed={};
+  defectData.forEach(d=>{
+    if(d.raisedOn){ raised[d.raisedOn]=(raised[d.raisedOn]||0)+1; }
+    if(d.closedOn){ closed[d.closedOn]=(closed[d.closedOn]||0)+1; }
+  });
+  const allDates=[...new Set([...Object.keys(raised),...Object.keys(closed)])].filter(d=>d).sort();
+  mkChart('ch-trend',{type:'line',data:{labels:allDates,datasets:[
+    {label:'Raised',data:allDates.map(d=>raised[d]||0),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.1)',fill:true,tension:.3,pointRadius:3},
+    {label:'Closed',data:allDates.map(d=>closed[d]||0),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.1)',fill:true,tension:.3,pointRadius:3}
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+}
+
+// ════════════════════════════════════════════════════
+//  FOCUS AREA
+// ════════════════════════════════════════════════════
+function renderFocusArea(){
+  const today=new Date();
+  const focus=defectData.filter(d=>['P1','P2'].includes(d.priority)&&d.status!=='Closed');
+  const tbody=document.getElementById('focus-tbody');
+  tbody.innerHTML=focus.length===0?'<tr><td colspan="8" style="color:#94a3b8;text-align:center;padding:20px">No critical/high open defects 🎉</td></tr>':
+    focus.map(d=>{
+      const age=dayAge(d.raisedOn,today);
+      const ageCls=age>14?'age-red':age>=7?'age-orange':'age-green';
+      return `<tr>
+        <td><span class="badge badge-${d.priority.toLowerCase()}">${d.id}</span></td>
+        <td style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#e2e8f0" title="${esc(d.description)}">${esc(d.description)}</td>
+        <td>${prioBadge(d.priority)}</td><td>${statusBadge(d.status)}</td>
+        <td style="color:#cbd5e1">${esc(d.assignedTo)}</td>
+        <td style="color:#94a3b8">${esc(d.team)}</td>
+        <td style="color:#94a3b8">${d.raisedOn}</td>
+        <td class="${ageCls}">${age}d</td>
+      </tr>`;
+    }).join('');
+}
+
+// ════════════════════════════════════════════════════
+//  DEFECT TABLE
+// ════════════════════════════════════════════════════
+function populateTeamFilter(){
+  const teams=[...new Set(defectData.map(d=>d.team).filter(Boolean))].sort();
+  const sel=document.getElementById('filter-team');
+  sel.innerHTML='<option value="">All Teams</option>'+teams.map(t=>`<option>${t}</option>`).join('');
+}
+
+function applyFilters(){
+  const search=document.getElementById('search-input').value.toLowerCase();
+  const prio=document.getElementById('filter-priority').value;
+  const status=document.getElementById('filter-status').value;
+  const team=document.getElementById('filter-team').value;
+  filteredData=defectData.filter(d=>{
+    if(search && !d.id.toLowerCase().includes(search) && !d.description.toLowerCase().includes(search)) return false;
+    if(prio && d.priority!==prio) return false;
+    if(status && d.status!==status) return false;
+    if(team && d.team!==team) return false;
+    return true;
+  });
+  currentPage=1;
+  renderDefectTable();
+}
+
+function clearFilters(){
+  document.getElementById('search-input').value='';
+  document.getElementById('filter-priority').value='';
+  document.getElementById('filter-status').value='';
+  document.getElementById('filter-team').value='';
+  filteredData=[...defectData];
+  currentPage=1;
+  renderDefectTable();
+}
+
+function renderDefectTable(){
+  const total=filteredData.length;
+  const pages=Math.max(1,Math.ceil(total/PAGE_SIZE));
+  if(currentPage>pages) currentPage=pages;
+  const start=(currentPage-1)*PAGE_SIZE, end=start+PAGE_SIZE;
+  const slice=filteredData.slice(start,end);
+  document.getElementById('count-badge').textContent=`Showing ${Math.min(end,total)} of ${total} defects`;
+  const tbody=document.getElementById('defect-tbody');
+  tbody.innerHTML=slice.length===0?'<tr><td colspan="12" style="text-align:center;color:#94a3b8;padding:30px">No defects match the current filters</td></tr>':
+    slice.map((d,i)=>`<tr>
+      <td style="color:#94a3b8">${start+i+1}</td>
+      <td><b>${esc(d.id)}</b></td>
+      <td style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.description)}">${esc(d.description)}</td>
+      <td>${prioBadge(d.priority)}</td>
+      <td>${statusBadge(d.status)}</td>
+      <td>${esc(d.assignedTo)}</td>
+      <td>${esc(d.team)}</td>
+      <td>${d.raisedOn}</td>
+      <td>${d.eta}</td>
+      <td>${d.closedOn}</td>
+      <td style="max-width:120px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.rootCause)}">${esc(d.rootCause)}</td>
+      <td><button class="btn-icon" onclick="openModal(${defectData.indexOf(d)})">👁 View</button></td>
+    </tr>`).join('');
+  renderPagination(pages);
+}
+
+function renderPagination(pages){
+  const container=document.getElementById('pagination');
+  if(pages<=1){container.innerHTML='';return;}
+  let btns=`<button class="page-btn" onclick="goPage(${currentPage-1})" ${currentPage===1?'disabled':''}>‹ Prev</button>`;
+  for(let p=1;p<=pages;p++){
+    if(p===1||p===pages||Math.abs(p-currentPage)<=2){
+      btns+=`<button class="page-btn ${p===currentPage?'active':''}" onclick="goPage(${p})">${p}</button>`;
+    } else if(Math.abs(p-currentPage)===3){
+      btns+=`<span style="padding:5px;color:#94a3b8">…</span>`;
+    }
+  }
+  btns+=`<button class="page-btn" onclick="goPage(${currentPage+1})" ${currentPage===pages?'disabled':''}>Next ›</button>`;
+  btns+=`<span style="color:#64748b;font-size:12px;margin-left:8px">Page ${currentPage} of ${pages}</span>`;
+  container.innerHTML=btns;
+}
+
+function goPage(p){
+  const pages=Math.ceil(filteredData.length/PAGE_SIZE);
+  if(p<1||p>pages) return;
+  currentPage=p;
+  renderDefectTable();
+}
+
+// ════════════════════════════════════════════════════
+//  ANALYTICS
+// ════════════════════════════════════════════════════
+function renderAnalytics(){
+  renderRCACharts();
+  renderRCAGroupTable();
+  renderAgeAnalysis();
+  renderTeamPerformance();
+  renderPrioTrend();
+}
+
+function renderRCACharts(){
+  const counts={};
+  defectData.forEach(d=>{ const rc=d.rootCause||'Unknown'; counts[rc]=(counts[rc]||0)+1; });
+  const sorted=Object.entries(counts).sort((a,b)=>b[1]-a[1]);
+  const labels=sorted.map(x=>x[0]),data=sorted.map(x=>x[1]);
+  const colors=['#6366f1','#f97316','#22c55e','#ef4444','#a855f7','#eab308','#06b6d4','#ec4899','#84cc16','#14b8a6'];
+
+  mkChart('ch-rca-dist',{type:'doughnut',data:{labels,datasets:[{data,backgroundColor:colors.slice(0,labels.length),borderWidth:2,borderColor:'#fff'}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'bottom',labels:{font:{size:10},boxWidth:12}}}}});
+
+  const closedCounts={};
+  defectData.filter(d=>d.status==='Closed').forEach(d=>{ const rc=d.rootCause||'Unknown'; closedCounts[rc]=(closedCounts[rc]||0)+1; });
+  mkChart('ch-rca-closed',{type:'bar',data:{labels,datasets:[{label:'Closed',data:labels.map(l=>closedCounts[l]||0),backgroundColor:'#22c55e',borderRadius:4}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+  // insights
+  const total=defectData.length;
+  const insBody=document.getElementById('rca-insights-body');
+  insBody.innerHTML=sorted.slice(0,3).map((x,i)=>`
+    <div class="insight-item">
+      <div class="insight-rank">${i+1}</div>
+      <div class="insight-text">
+        <div class="name">${esc(x[0])}</div>
+        <div class="sub">${x[1]} defects · ${Math.round(x[1]/total*100)}%</div>
+      </div>
+    </div>`).join('');
+}
+
+function renderRCAGroupTable(){
+  const groups={};
+  defectData.forEach(d=>{
+    const rc=d.rootCause||'Unknown';
+    if(!groups[rc]) groups[rc]={total:0,p1:0,p2:0,closed:0,defects:[]};
+    groups[rc].total++;
+    if(d.priority==='P1') groups[rc].p1++;
+    if(d.priority==='P2') groups[rc].p2++;
+    if(d.status==='Closed') groups[rc].closed++;
+    groups[rc].defects.push(d);
+  });
+  const total=defectData.length;
+  const tbody=document.getElementById('rca-group-tbody');
+  let html='';
+  Object.entries(groups).sort((a,b)=>b[1].total-a[1].total).forEach(([rc,g],gi)=>{
+    const pct=Math.round(g.total/total*100);
+    html+=`<tr class="rca-group-header" onclick="toggleRcaGroup('rg${gi}',this)">
+      <td colspan="6" style="padding:10px 14px;font-weight:600;color:#1e293b;cursor:pointer">
+        <span class="arrow">▶</span> ${esc(rc)}
+        <span style="margin-left:12px;background:#e0f2fe;color:#0369a1;padding:2px 8px;border-radius:12px;font-size:11px">${g.total} defects</span>
+      </td>
+    </tr>
+    <tr style="display:none" id="rg${gi}-meta">
+      <td style="padding:0 0 0 28px;font-size:12px;color:#64748b">${rc}</td>
+      <td>${g.total}</td><td>${pct}%</td><td>${g.p1}</td><td>${g.p2}</td><td>${g.closed}</td>
+    </tr>`;
+    g.defects.forEach(d=>{
+      html+=`<tr class="rg${gi}-row" style="display:none">
+        <td style="padding-left:28px;font-size:12px">${esc(d.id)}</td>
+        <td style="font-size:12px;max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.description)}">${esc(d.description)}</td>
+        <td colspan="2">${prioBadge(d.priority)}</td>
+        <td>${statusBadge(d.status)}</td>
+        <td style="font-size:12px">${esc(d.assignedTo)}</td>
+      </tr>`;
+    });
+  });
+  tbody.innerHTML=html;
+}
+
+function toggleRcaGroup(id,hdr){
+  const isOpen=hdr.classList.toggle('open');
+  const metaRow=document.getElementById(id+'-meta');
+  const defRows=document.querySelectorAll('.'+id+'-row');
+  if(metaRow) metaRow.style.display=isOpen?'':'none';
+  defRows.forEach(r=>r.style.display=isOpen?'':'none');
+  hdr.querySelector('.arrow').style.transform=isOpen?'rotate(90deg)':'';
+}
+
+function renderAgeAnalysis(){
+  const today=new Date();
+  const buckets={'<7 days':0,'7-14 days':0,'15-30 days':0,'>30 days':0};
+  const openDefects=defectData.filter(d=>d.status!=='Closed'&&d.raisedOn);
+  openDefects.forEach(d=>{
+    const age=dayAge(d.raisedOn,today);
+    if(age<7) buckets['<7 days']++;
+    else if(age<=14) buckets['7-14 days']++;
+    else if(age<=30) buckets['15-30 days']++;
+    else buckets['>30 days']++;
+  });
+  mkChart('ch-age',{type:'bar',data:{labels:Object.keys(buckets),datasets:[{label:'Open Defects',data:Object.values(buckets),backgroundColor:['#22c55e','#eab308','#f97316','#ef4444'],borderRadius:6}]},
+    options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{y:{beginAtZero:true,ticks:{stepSize:1}}}}});
+
+  const oldest=openDefects.sort((a,b)=>a.raisedOn.localeCompare(b.raisedOn)).slice(0,10);
+  const tbody=document.getElementById('age-tbody');
+  tbody.innerHTML=oldest.map(d=>{
+    const age=dayAge(d.raisedOn,today);
+    const cls=age>14?'age-red':age>=7?'age-orange':'age-green';
+    return `<tr><td>${esc(d.id)}</td>
+      <td style="max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="${esc(d.description)}">${esc(d.description)}</td>
+      <td>${prioBadge(d.priority)}</td><td>${d.raisedOn}</td>
+      <td class="${cls}">${age}d</td></tr>`;
+  }).join('');
+}
+
+function renderTeamPerformance(){
+  const teams={};
+  defectData.forEach(d=>{
+    const t=d.team||'Unknown';
+    if(!teams[t]) teams[t]={total:0,open:0,closed:0};
+    teams[t].total++;
+    if(d.status==='Closed') teams[t].closed++;
+    else teams[t].open++;
+  });
+  const sorted=Object.entries(teams).sort((a,b)=>b[1].closed-a[1].closed);
+  mkChart('ch-team-perf',{type:'bar',data:{labels:sorted.map(x=>x[0]),datasets:[
+    {label:'Closed',data:sorted.map(x=>x[1].closed),backgroundColor:'#22c55e',borderRadius:4},
+    {label:'Open',data:sorted.map(x=>x[1].open),backgroundColor:'#f97316',borderRadius:4},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{x:{stacked:true},y:{stacked:true,beginAtZero:true}}}});
+
+  const tbody=document.getElementById('team-tbody');
+  tbody.innerHTML=sorted.map(([t,g])=>{
+    const rate=g.total?Math.round(g.closed/g.total*100):0;
+    const color=rate>=70?'#16a34a':rate>=40?'#ca8a04':'#dc2626';
+    return `<tr><td><b>${esc(t)}</b></td><td>${g.total}</td><td>${g.open}</td><td>${g.closed}</td>
+      <td><span style="color:${color};font-weight:700">${rate}%</span></td></tr>`;
+  }).join('');
+}
+
+function renderPrioTrend(){
+  const byDate={};
+  defectData.forEach(d=>{
+    if(!d.raisedOn) return;
+    if(!byDate[d.raisedOn]) byDate[d.raisedOn]={P1:0,P2:0,P3:0,P4:0};
+    if(byDate[d.raisedOn][d.priority]!==undefined) byDate[d.raisedOn][d.priority]++;
+  });
+  const dates=Object.keys(byDate).sort();
+  mkChart('ch-prio-trend',{type:'line',data:{labels:dates,datasets:[
+    {label:'P1',data:dates.map(d=>byDate[d].P1),borderColor:'#ef4444',backgroundColor:'rgba(239,68,68,.15)',fill:true,tension:.3},
+    {label:'P2',data:dates.map(d=>byDate[d].P2),borderColor:'#f97316',backgroundColor:'rgba(249,115,22,.15)',fill:true,tension:.3},
+    {label:'P3',data:dates.map(d=>byDate[d].P3),borderColor:'#eab308',backgroundColor:'rgba(234,179,8,.15)',fill:true,tension:.3},
+    {label:'P4',data:dates.map(d=>byDate[d].P4),borderColor:'#22c55e',backgroundColor:'rgba(34,197,94,.15)',fill:true,tension:.3},
+  ]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'top'}},scales:{y:{beginAtZero:true,stacked:true}}}});
+}
+
+// ════════════════════════════════════════════════════
+//  MODAL
+// ════════════════════════════════════════════════════
+function openModal(idx){
+  const d = defectData[idx];
+  currentModal = d;
+  const body = document.getElementById('modal-body');
+  body.innerHTML = `
+    <div>
+      <div id="modal-id-big">${esc(d.id)}</div>
+      <div class="modal-field"><div class="field-label">Description</div><div class="field-val">${esc(d.description)}</div></div>
+      <div class="modal-field"><div class="field-label">Priority</div><div class="field-val">${prioBadge(d.priority)}</div></div>
+      <div class="modal-field"><div class="field-label">Status</div><div class="field-val">${statusBadge(d.status)}</div></div>
+      <div class="modal-field"><div class="field-label">Root Cause</div><div class="field-val">${esc(d.rootCause)||'<span style="color:#94a3b8">—</span>'}</div></div>
+    </div>
+    <div>
+      <div class="modal-field"><div class="field-label">Raised By</div><div class="field-val">${esc(d.raisedBy)||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">Assigned To</div><div class="field-val">${esc(d.assignedTo)||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">Team</div><div class="field-val">${esc(d.team)||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">Raised On</div><div class="field-val">${d.raisedOn||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">ETA</div><div class="field-val">${d.eta||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">Closed On</div><div class="field-val">${d.closedOn||'—'}</div></div>
+      <div class="modal-field"><div class="field-label">Comments</div><div class="field-val">${esc(d.comments)||'<span style="color:#94a3b8">No comments</span>'}</div></div>
+    </div>`;
+  document.getElementById('modal-overlay').classList.add('open');
+}
+
+function closeModal(){
+  document.getElementById('modal-overlay').classList.remove('open');
+  currentModal=null;
+}
+
+function copyDefectId(){
+  if(currentModal) navigator.clipboard.writeText(currentModal.id).then(()=>alert('Defect ID copied: '+currentModal.id));
+}
+
+// ════════════════════════════════════════════════════
+//  TAB SWITCHING
+// ════════════════════════════════════════════════════
+function switchTab(tab){
+  currentTab=tab;
+  document.querySelectorAll('.nav-item').forEach(el=>el.classList.toggle('active',el.dataset.tab===tab));
+  document.querySelectorAll('.tab-pane').forEach(el=>el.classList.toggle('active',el.id==='tab-'+tab));
+  if(tab==='analytics' && defectData.length>0){
+    setTimeout(renderAnalytics,80);
+  }
+  if(tab==='overview' && defectData.length>0){
+    setTimeout(()=>{
+      renderStatusChart();renderPriorityChart();renderTeamChart();renderTrendChart();
+    },50);
+  }
+}
+
+// ════════════════════════════════════════════════════
+//  META BAR
+// ════════════════════════════════════════════════════
+function toggleMeta(){
+  metaOpen=!metaOpen;
+  document.getElementById('meta-form').style.display=metaOpen?'grid':'none';
+  document.getElementById('meta-arrow').textContent=metaOpen?'▲':'▼';
+}
+
+function applyMeta(){
+  const project=document.getElementById('m-project').value;
+  const sprint=document.getElementById('m-sprint').value;
+  if(project||sprint) document.getElementById('toolbar-title').textContent=`${project||'Defect'} Dashboard${sprint?' — '+sprint:''}`;
+}
+
+// ════════════════════════════════════════════════════
+//  PDF EXPORT
+// ════════════════════════════════════════════════════
+function exportPDF(){
+  const overlay=document.getElementById('pdf-overlay');
+  const progress=document.getElementById('pdf-progress');
+  overlay.classList.add('show');
+  let pct=0;
+  const iv=setInterval(()=>{ pct=Math.min(pct+8,90); progress.style.width=pct+'%'; },200);
+  // Build printable snapshot from overview
+  const title=document.getElementById('toolbar-title').textContent;
+  const kpiHtml=document.getElementById('kpi-row').outerHTML;
+  const focusHtml=document.getElementById('focus-card').outerHTML;
+  const snap=document.createElement('div');
+  snap.style.cssText='width:800px;padding:24px;font-family:system-ui,sans-serif;font-size:12px';
+  snap.innerHTML=`<h1 style="font-size:20px;margin-bottom:16px;color:#1e293b">${title}</h1>
+    <p style="color:#64748b;margin-bottom:16px">Generated: ${new Date().toLocaleString()}</p>
+    <style>
+      .kpi-card{display:inline-block;width:140px;margin:6px;padding:12px;border-radius:8px;background:#fff;border-top:4px solid #94a3b8;box-shadow:0 1px 4px rgba(0,0,0,.08)}
+      .kpi-num{font-size:24px;font-weight:700}.kpi-label{font-size:10px;color:#64748b}
+      .kpi-total{border-top-color:#1d4ed8}.kpi-new{border-top-color:#6366f1}.kpi-open{border-top-color:#f59e0b}.kpi-inprog{border-top-color:#3b82f6}.kpi-retest{border-top-color:#8b5cf6}.kpi-closed{border-top-color:#22c55e}.kpi-p1{border-top-color:#ef4444}.kpi-p2{border-top-color:#f97316}
+      .kpi-badge{display:none}
+      #focus-card{background:#1e293b;color:#fff;border-left:4px solid #f97316;border-radius:8px;padding:16px;margin-top:20px}
+      #focus-card h3{color:#f97316;margin-bottom:10px}.data-table{width:100%;border-collapse:collapse;font-size:11px}.data-table th{background:#334155;color:#fff;padding:6px 10px;text-align:left}.data-table td{padding:5px 10px;border-bottom:1px solid rgba(255,255,255,.1);color:#cbd5e1}
+      .badge{padding:1px 7px;border-radius:12px;font-size:10px;font-weight:600}
+      .badge-p1{background:#fef2f2;color:#dc2626}.badge-p2{background:#fff7ed;color:#ea580c}.badge-p3{background:#fefce8;color:#ca8a04}.badge-p4{background:#f0fdf4;color:#16a34a}
+      .badge-new{background:#ede9fe;color:#7c3aed}.badge-open{background:#fff7ed;color:#c2410c}.badge-inprog{background:#eff6ff;color:#1d4ed8}.badge-retest{background:#f5f3ff;color:#6d28d9}.badge-closed{background:#f0fdf4;color:#15803d}.badge-reopen{background:#fef9c3;color:#854d0e}
+      .age-red{color:#ef4444;font-weight:600}.age-orange{color:#f97316;font-weight:600}.age-green{color:#22c55e;font-weight:600}
+    </style>
+    <div id="kpi-row" style="display:grid;grid-template-columns:repeat(8,1fr);gap:8px">${kpiHtml.replace(/^<div[^>]*>/,'').replace(/<\/div>$/,'')}</div>
+    ${focusHtml}`;
+  document.body.appendChild(snap);
+  const opts={margin:10,filename:'defect-report.pdf',image:{type:'jpeg',quality:.92},html2canvas:{scale:1.5,useCORS:true},jsPDF:{unit:'mm',format:'a4',orientation:'landscape'}};
+  html2pdf().set(opts).from(snap).save().then(()=>{
+    clearInterval(iv);
+    progress.style.width='100%';
+    setTimeout(()=>{ overlay.classList.remove('show'); progress.style.width='0%'; document.body.removeChild(snap); },600);
+  }).catch(()=>{ clearInterval(iv); overlay.classList.remove('show'); document.body.removeChild(snap); });
+}
+
+// ════════════════════════════════════════════════════
+//  CHAT ASSISTANT
+// ════════════════════════════════════════════════════
+function sendChat(msg){
+  const input=document.getElementById('chat-input');
+  const text=(msg||input.value).trim();
+  if(!text) return;
+  input.value='';
+  appendMessage(text,'user');
+  // typing indicator
+  const typingId='typing-'+Date.now();
+  const div=document.createElement('div');
+  div.className='chat-msg bot';
+  div.id=typingId;
+  div.innerHTML='<div class="typing-dots"><span></span><span></span><span></span></div>';
+  document.getElementById('chat-messages').appendChild(div);
+  scrollChat();
+  setTimeout(()=>{
+    const el=document.getElementById(typingId);
+    if(el) el.remove();
+    const resp=computeResponse(text.toLowerCase());
+    appendMessage(resp,'bot');
+  },600);
+}
+
+function appendMessage(text,role){
+  const div=document.createElement('div');
+  div.className='chat-msg '+role;
+  div.innerHTML=text;
+  document.getElementById('chat-messages').appendChild(div);
+  scrollChat();
+}
+
+function scrollChat(){
+  const el=document.getElementById('chat-messages');
+  el.scrollTop=el.scrollHeight;
+}
+
+function computeResponse(q){
+  if(!defectData.length) return "No data loaded yet. Please upload a defect file or load sample data first.";
+  const d=defectData;
+  const total=d.length;
+  const closed=d.filter(x=>x.status==='Closed');
+  const open=d.filter(x=>x.status!=='Closed');
+
+  if((q.includes('p1')&&q.includes('open'))||(q.includes('critical')&&q.includes('open'))){
+    const p1open=d.filter(x=>x.priority==='P1'&&x.status!=='Closed');
+    return `There are <b>${p1open.length}</b> P1 Critical defects currently open.`;
+  }
+  if(q.includes('p2')&&q.includes('open')){
+    const p2open=d.filter(x=>x.priority==='P2'&&x.status!=='Closed');
+    return `There are <b>${p2open.length}</b> P2 High defects currently open.`;
+  }
+  if(q.includes('critical')||(q.includes('list')&&q.includes('p1'))){
+    const p1=d.filter(x=>x.priority==='P1'&&x.status!=='Closed');
+    if(!p1.length) return 'No P1 critical defects are currently open. 🎉';
+    const rows=p1.slice(0,8).map(x=>`<tr><td>${esc(x.id)}</td><td>${esc(x.description).slice(0,40)}…</td><td>${x.status}</td></tr>`).join('');
+    return `<b>${p1.length} P1 Critical open defects:</b><table><thead><tr><th>ID</th><th>Description</th><th>Status</th></tr></thead><tbody>${rows}</tbody></table>${p1.length>8?`<br>…and ${p1.length-8} more.`:''}`;
+  }
+  if(q.includes('closed')&&!q.includes('root')){
+    return `<b>${closed.length}</b> defects are Closed out of ${total} (${Math.round(closed.length/total*100)}% closure rate).`;
+  }
+  if((q.includes('team')&&(q.includes('most')||q.includes('highest')||q.includes('top')))){
+    const tc={};
+    open.forEach(x=>{ if(x.team) tc[x.team]=(tc[x.team]||0)+1; });
+    const top=Object.entries(tc).sort((a,b)=>b[1]-a[1])[0];
+    return top?`The team with the most open defects is <b>${top[0]}</b> with <b>${top[1]}</b> open defects.`:'No team data available.';
+  }
+  if(q.includes('total')||q.includes('how many defect')){
+    const byStatus={};
+    d.forEach(x=>{ byStatus[x.status]=(byStatus[x.status]||0)+1; });
+    const breakdown=Object.entries(byStatus).map(([s,c])=>`${s}: ${c}`).join(', ');
+    return `Total defects: <b>${total}</b><br>${breakdown}`;
+  }
+  if(q.includes('status')&&!q.includes('team')){
+    const byStatus={};
+    d.forEach(x=>{ byStatus[x.status]=(byStatus[x.status]||0)+1; });
+    return '<b>Status Breakdown:</b><br>'+Object.entries(byStatus).map(([s,c])=>`${statusBadge(s)} ${c}`).join('<br>');
+  }
+  if(q.includes('priority')){
+    const byP={P1:0,P2:0,P3:0,P4:0};
+    d.forEach(x=>{ if(byP[x.priority]!==undefined) byP[x.priority]++; });
+    return `<b>Priority Breakdown:</b><br>${prioBadge('P1')} ${byP.P1}<br>${prioBadge('P2')} ${byP.P2}<br>${prioBadge('P3')} ${byP.P3}<br>${prioBadge('P4')} ${byP.P4}`;
+  }
+  if(q.includes('oldest')){
+    const op=open.filter(x=>x.raisedOn).sort((a,b)=>a.raisedOn.localeCompare(b.raisedOn));
+    if(!op.length) return 'No open defects found.';
+    const x=op[0];
+    const age=dayAge(x.raisedOn,new Date());
+    return `Oldest open defect: <b>${esc(x.id)}</b><br>${esc(x.description).slice(0,60)}<br>Raised: ${x.raisedOn} (${age} days ago) | ${prioBadge(x.priority)}`;
+  }
+  if(q.includes('average age')||q.includes('avg age')){
+    const valid=open.filter(x=>x.raisedOn);
+    if(!valid.length) return 'No open defects with a raised date.';
+    const avg=valid.reduce((s,x)=>s+dayAge(x.raisedOn,new Date()),0)/valid.length;
+    return `Average age of open defects: <b>${Math.round(avg)} days</b> (across ${valid.length} open defects).`;
+  }
+  if(q.includes('reopen')||q.includes('reopened')){
+    const cnt=d.filter(x=>x.status==='Reopen').length;
+    return `There are <b>${cnt}</b> defects with Reopen status.`;
+  }
+  if(q.includes('overdue')||q.includes('eta')){
+    const today=new Date().toISOString().slice(0,10);
+    const overdue=open.filter(x=>x.eta&&x.eta<today);
+    return `<b>${overdue.length}</b> open defects are past their ETA (overdue).`;
+  }
+  return "I can answer questions about defect counts, priorities, statuses, team workload, and more.<br>Try: <i>\"How many P1 defects are open?\"</i>";
+}
+
+// ════════════════════════════════════════════════════
+//  HELPERS
+// ════════════════════════════════════════════════════
+function esc(s){ return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); }
+
+function dayAge(dateStr, now){
+  if(!dateStr) return 0;
+  const d=new Date(dateStr);
+  if(isNaN(d)) return 0;
+  return Math.max(0,Math.floor((now-d)/86400000));
+}
+
+function prioBadge(p){
+  const map={P1:'p1',P2:'p2',P3:'p3',P4:'p4'};
+  const cls=map[p]||'p4';
+  return `<span class="badge badge-${cls}">${esc(p)}</span>`;
+}
+
+function statusBadge(s){
+  const map={'New':'new','Open':'open','In Progress':'inprog','Ready for Retest':'retest','Closed':'closed','Reopen':'reopen','Assigned':'assigned'};
+  const cls=map[s]||'open';
+  return `<span class="badge badge-${cls}">${esc(s)}</span>`;
+}
+
+function showLoading(v){
+  document.getElementById('loading-overlay').classList.toggle('show',v);
+}
+
+// ════════════════════════════════════════════════════
+//  INIT
+// ════════════════════════════════════════════════════
+(function init(){
+  // Welcome bot message
+  appendMessage("Hi! I'm your QA Assistant. I can answer questions about your defects. Upload data or load the sample set, then ask me anything!", 'bot');
+})();
+</script>
+</body>
+</html>
