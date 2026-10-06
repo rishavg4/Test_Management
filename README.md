@@ -1,12 +1,11 @@
-# QA & Defect Management Dashboards
+# QA & Test Management Dashboard
 
-Interactive, enterprise-grade QA and Test Management reporting dashboards built for tracking test execution, defect lifecycles, traceability, automated discrepancy audits, and sign-off readiness.
+Interactive, enterprise-grade QA and Test Management reporting dashboard built for tracking test execution, defect lifecycles, traceability, automated discrepancy audits, and sign-off readiness.
 
 ---
 
 ## 🚀 Features
 
-### 1. Test Management Dashboard (`test-management/index.html`)
 - **Executive Metrics & KPIs**: Total TCs, executed count, pass/fail/blocked breakdown, pass rate %, defect counts by priority (P1–P4).
 - **Execution Trend & Progress Visualizations**:
   - Execution trend line chart with smoothed curves.
@@ -29,9 +28,6 @@ Interactive, enterprise-grade QA and Test Management reporting dashboards built 
 - **AI QA Assistant**: Domain-restricted interactive chatbot for querying metrics, root causes, tester workloads, and release recommendations.
 - **PDF Export**: Single-click PDF export powered by `html2pdf.js`.
 
-### 2. Defect Management Screen (`defect-management/index.html`)
-- Dedicated defect tracking screen focusing on SLA compliance, severity breakdowns, squad assignments, and root cause analysis.
-
 ---
 
 ## 📁 Repository Structure
@@ -43,18 +39,16 @@ Interactive, enterprise-grade QA and Test Management reporting dashboards built 
 │   ├── index.html               # Main QA Test Management Dashboard
 │   ├── HUB_Test_Data.xlsx       # Sample Excel workbook (TCs, Defects, Mappings)
 │   └── generate_test_data.py   # Python script to generate sample test datasets
-└── defect-management/
-    └── index.html               # Standalone Defect Management Screen
 ```
 
 ---
 
 ## 🛠️ Quick Start / Usage
 
-No server installation or build steps required. The dashboards run directly in modern web browsers:
+No server installation or build steps required. The dashboard runs directly in modern web browsers:
 
 1. **Open in Browser**:
-   - Double-click [`test-management/index.html`](test-management/index.html) or open it in Google Chrome, Microsoft Edge, Mozilla Firefox, or Safari.
+   - Open [`test-management/index.html`](test-management/index.html) in Google Chrome, Microsoft Edge, Mozilla Firefox, or Safari.
 2. **Load Data**:
    - Click **"📂 Click to browse or drag & drop .xlsx / .xls"** to load your QA report workbook.
    - Or click **"✨ Quick Load Sample Data"** to explore all dashboard features immediately.
@@ -72,11 +66,9 @@ pip install pandas openpyxl
 python generate_test_data.py
 ```
 
-This generates `HUB_Test_Data.xlsx` with realistic test cases, defects, and traceability mapping sheets.
-
 ---
 
-## 🔒 Security & Compliance
+## 🔒 Security & Privacy
 
 - **Client-Side Only**: All data parsing (Excel, OCR, calculations) runs entirely in the browser memory. No data is sent to external servers.
 - **Zero Secrets**: No API keys, credentials, or sensitive configurations stored in the codebase.
