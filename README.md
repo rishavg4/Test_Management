@@ -14,10 +14,11 @@ Interactive, enterprise-grade QA and Test Management reporting dashboard built f
   - Separated cumulative execution (Planned vs Actual) and daily execution breakdown.
   - Daily progress detail table with directional trend indicators.
 - **Data Ingestion Options**:
-  - Upload Excel workbooks (`.xlsx`, `.xls`) with multi-sheet auto-detection (`All TC`, `Defect List`, `Defect vs TC`).
-  - Screenshot/Image OCR ingestion (`.png`, `.jpg`, `.jpeg`, `.webp`) via embedded table parser and Tesseract.js.
-  - Box / SharePoint cloud link importer.
-  - 1-Click sample data generator (500 TCs, 200 defects, full traceability matrix).
+  - **Jira / Azure DevOps / HP ALM API Connector**: Direct live REST API synchronization for project work items, test runs, and defect backlog using project keys, custom endpoints, and tokens.
+  - **Excel Workbook Upload**: Drag-and-drop `.xlsx`/`.xls` files with automatic multi-sheet detection (`All TC`, `Defect List`, `Defect vs TC`).
+  - **Screenshot/Image OCR**: Embedded OCR table parser powered by Tesseract.js (`.png`, `.jpg`, `.jpeg`, `.webp`).
+  - **IBM Box & SharePoint Importer**: Direct ingestion from cloud URLs and shared folder links.
+  - **1-Click Sample & Demo Presets**: Instant load of enterprise test suites and defect tracking matrices.
 - **Discrepancy Audit ("Discrip" Tab)**:
   - Real-time audit engine scanning for inconsistent defect statuses, duplicate TCs with contradictory outcomes, passed test cases with unresolved blockers, failed TCs lacking defects, and premature closure dates.
 - **Traceability & Defect Modals**: Detailed defect drill-down with bidirectional linked test case resolution and interactive filters.
