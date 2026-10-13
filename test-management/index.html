@@ -631,39 +631,59 @@ function g(n,...keys){
 function extractYMD(v){
   if(!v) return '';
   if(v instanceof Date){
+    if(isNaN(v.getTime())) return '';
     return v.getUTCFullYear()+'-'+
       String(v.getUTCMonth()+1).padStart(2,'0')+'-'+
       String(v.getUTCDate()).padStart(2,'0');
   }
-  const s=String(v).trim();
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
-  const d=new Date(s);
-  if(!isNaN(d)) return extractYMD(d);
+  if(typeof v === 'number' && v > 10000 && v < 80000){
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if(!isNaN(d.getTime())) return extractYMD(d);
+  }
+  const s = String(v).trim();
+  if(!s) return '';
+  const ymd = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if(ymd) return `${ymd[1]}-${String(ymd[2]).padStart(2,'0')}-${String(ymd[3]).padStart(2,'0')}`;
+  const dmy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if(dmy){
+    const d = parseInt(dmy[1], 10), m = parseInt(dmy[2], 10), y = dmy[3];
+    if(d > 12 && m <= 12) return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(m > 12 && d <= 12) return `${y}-${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`;
+    return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
+  const d = new Date(s);
+  if(!isNaN(d.getTime())){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
   return s;
 }
 
-/** Robust canonical priority normalizer (P1, P2, P3, P4) */
+/** Robust canonical priority normalizer (P1, P2, P3, P4) — handles "3 - Medium", "1 - Critical", "Severity 2 - High", etc. */
 function priNorm(p){
   if(p == null) return 'P3';
-  const s = String(p).trim().toUpperCase();
+  const s = String(p).trim();
   if(!s) return 'P3';
-  if(/^P-?1\b|^PRIORITY\s*1\b|^SEVERITY\s*1\b|^SEV\s*1\b|^1\b|^CRITICAL\b|^BLOCKER\b|^URGENT\b/i.test(s)){
+
+  // Check prefix or embedded number: 1, 2, 3, 4
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?1(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(critical|blocker|urgent|showstopper)\b/i.test(s)){
     return 'P1';
   }
-  if(/^P-?2\b|^PRIORITY\s*2\b|^SEVERITY\s*2\b|^SEV\s*2\b|^2\b|^HIGH\b|^MAJOR\b/i.test(s)){
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?2(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(high|major)\b/i.test(s)){
     return 'P2';
   }
-  if(/^P-?3\b|^PRIORITY\s*3\b|^SEVERITY\s*3\b|^SEV\s*3\b|^3\b|^MEDIUM\b|^MED\b|^NORMAL\b|^MODERATE\b/i.test(s)){
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?3(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(medium|med|normal|moderate)\b/i.test(s)){
     return 'P3';
   }
-  if(/^P-?4\b|^PRIORITY\s*4\b|^SEVERITY\s*4\b|^SEV\s*4\b|^4\b|^LOW\b|^MINOR\b|^TRIVIAL\b|^COSMETIC\b/i.test(s)){
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?4(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(low|minor|trivial|cosmetic)\b/i.test(s)){
     return 'P4';
   }
-  if(/\bP1\b/i.test(s)) return 'P1';
-  if(/\bP2\b/i.test(s)) return 'P2';
-  if(/\bP3\b/i.test(s)) return 'P3';
-  if(/\bP4\b/i.test(s)) return 'P4';
-  return s;
+
+  const upper = s.toUpperCase();
+  if(/\bP1\b/i.test(upper)) return 'P1';
+  if(/\bP2\b/i.test(upper)) return 'P2';
+  if(/\bP3\b/i.test(upper)) return 'P3';
+  if(/\bP4\b/i.test(upper)) return 'P4';
+  return 'P3';
 }
 
 /** Normalise TC row */
@@ -680,36 +700,37 @@ function normalizeTC(row){
   else st = rawStatus;
 
   return {
-    id:       g(n,'tcid','id','testcaseid','tc','caseid','key'),
+    id:       g(n,'tcid','id','testcaseid','tc','caseid','key','workitemid'),
     name:     g(n,'testcasename','name','title','description','testcase','summary','scenarioname','scenario'),
-    module:   g(n,'module','component','area','feature','epic','section','subsystem') || 'General',
-    priority: priNorm(g(n,'priority','prio','p','sev','severity','tcpriority','prioritylevel','casepriority','importance','criticality','pri')),
+    module:   g(n,'workstream','workstreamcreatedby','tcodeorfioriappid','fioriappid','tcode','module','component','area','feature','epic','section','subsystem') || 'General',
+    priority: priNorm(g(n,'severity','priority','prio','p','sev','tcpriority','prioritylevel','casepriority','importance','criticality','pri')),
     status:   st,
-    execBy:   g(n,'executedby','execby','assignee','tester','executor','runby','testedby'),
-    execDate: extractYMD(g(n,'executiondate','execdate','date','executedon','rundate','testdate')),
+    execBy:   g(n,'executedby','execby','assignee','tester','executor','runby','testedby','assignedto','createdby'),
+    execDate: extractYMD(g(n,'executiondate','execdate','date','executedon','rundate','testdate','createddate','changeddate')),
     defectId: g(n,'defectid','defid','bugid','defect','issueid','linkeddefect','linkedbug'),
-    comments: g(n,'comments','comment','notes','remarks','executioncomments','actualresult'),
+    comments: g(n,'comments','comment','notes','remarks','executioncomments','actualresult','tags','scope'),
   };
 }
 
-/** Normalise Defect row — handles "Assied To" typo & multi-column variants */
-function normalizeDefect(row){
+/** Normalise Defect row — comprehensive mapping for Azure DevOps, SAP, Jira, ALM, ServiceNow */
+function normalizeDefect(row, idx){
   const n={};
   Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  const rowId = g(n,'id','defectid','defid','bugid','workitemid','issueid','key','itemid','number','no') || ('BUG-' + String((idx||0)+1).padStart(3,'0'));
   return {
-    id:          g(n,'defectid','defid','bugid','id','issueid','key'),
-    description: g(n,'description','desc','title','summary','name','defectname','issuename'),
-    priority:    priNorm(g(n,'priority','prio','p','sev','severity','defectpriority','defectseverity','severitylevel','prioritylevel','impact','criticality','severitycode','sevlevel','pri')),
-    status:      defStatusNorm(g(n,'status','state','defectstatus','issuestatus','currentstatus')),
-    raisedBy:    g(n,'raisedby','reportedby','createdby','raiser','reporter','author','loggedby'),
-    assignedTo:  g(n,'assiedto','assignedto','owner','developer','assignee','assigned','assignto','dev','assignedresource'), // "Assied To" typo handled
-    team:        g(n,'assignedteam','team','squad','group','assignedsquad','assignedgroup','component'),
-    raisedOn:    extractYMD(g(n,'raisedon','reportedon','createdon','date','raiseddate','createddate','reportdate')),
+    id:          rowId,
+    description: g(n,'title','description','desc','summary','name','defectname','issuename','workitemtitle','subject','details'),
+    priority:    priNorm(g(n,'severity','priority','prio','p','sev','defectpriority','defectseverity','severitylevel','prioritylevel','impact','criticality','severitycode','sevlevel','pri','importance')),
+    status:      defStatusNorm(g(n,'state','status','defectstatus','issuestatus','currentstatus','workflowstate','workitemstate','stage')),
+    raisedBy:    g(n,'createdby','raisedby','reportedby','author','raiser','reporter','loggedby','creator','originator','workstreamcreatedby'),
+    assignedTo:  g(n,'assignedto','assiedto','owner','developer','assignee','assigned','assignto','dev','assignedresource','changedby','modifiedby'),
+    team:        g(n,'workstream','workstreamcreatedby','assignedteam','team','squad','group','assignedsquad','assignedgroup','component','module','stream','track','tcodeorfioriappid','fioriappid','tcode','scope','area','areapath') || 'Core Team',
+    raisedOn:    extractYMD(g(n,'createddate','raisedon','reportedon','createdon','date','raiseddate','reportdate','creationdate','loggeddate')),
     eta:         extractYMD(g(n,'eta','duedate','targetdate','targetresolutiondate','resolutioneta','fixdate')),
-    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon','resolutiondate','actualfixdate','completedon')),
-    rootCause:   g(n,'rootcause','rca','cause','rc','rootcausecategory','defectcategory','defecttype'),
-    comments:    g(n,'comments','comment','notes','remarks','triagenotes','triagecomments','resolutionnotes'),
-    linkedTC:    g(n,'linkedtc','linkedtcs','linkedtestcases','testcaseid','tcid','tc','linkedtestcase','testcases'),
+    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon','resolutiondate','actualfixdate','completedon','changeddate','modifieddate','updateddate')),
+    rootCause:   g(n,'typeofbug','bugtype','defecttype','rootcause','rca','cause','rc','rootcausecategory','defectcategory','category','classification','scope','tags','tag') || 'Functional Error',
+    comments:    g(n,'comments','comment','notes','remarks','triagenotes','triagecomments','resolutionnotes','tags','scope','tcodeorfioriappid','fioriappid','workitemtype'),
+    linkedTC:    g(n,'linkedtc','linkedtcs','linkedtestcases','testcaseid','tcid','tc','linkedtestcase','testcases','tcodeorfioriappid'),
   };
 }
 
@@ -718,24 +739,27 @@ function normalizeMapping(row){
   const n={};
   Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
   return {
-    defectId:     g(n,'defectid','defid','bugid','defect','id'),
+    defectId:     g(n,'defectid','defid','bugid','defect','id','workitemid'),
     tcId:         g(n,'tcid','tc','testcaseid','testcase'),
-    relationship: g(n,'relationship','rel','type','relationshiptype'),
+    relationship: g(n,'relationship','rel','type','relationshiptype') || 'Associated With',
   };
 }
 
 /** Normalise defect status to canonical form */
 function defStatusNorm(s){
-  if(s == null) return '';
+  if(s == null) return 'Open';
   const raw = String(s).trim().toLowerCase().replace(/[\s_\-]/g,'');
-  const m={
-    new:'New', open:'Open', closed:'Closed', close:'Closed', resolved:'Closed',
-    reopen:'Reopen', reopened:'Reopen',
-    readyforretest:'Ready for Retest', rft:'Ready for Retest', retest:'Ready for Retest',
-    inprogress:'In Progress', inprog:'In Progress', wip:'In Progress',
-    assigned:'Assigned', active:'Open'
-  };
-  return m[raw] || (String(s).trim() ? (String(s).trim().charAt(0).toUpperCase() + String(s).trim().slice(1)) : '');
+  if(!raw) return 'Open';
+
+  if(raw === 'new' || raw === 'submitted' || raw === 'proposed' || raw === 'draft') return 'New';
+  if(raw === 'closed' || raw === 'close' || raw === 'done' || raw === 'completed' || raw === 'resolved' || raw === 'fixed' || raw === 'cancelled' || raw === 'rejected') return 'Closed';
+  if(raw === 'reopen' || raw === 'reopened' || raw === 're-opened') return 'Reopen';
+  if(raw.includes('retest') || raw.includes('ready') || raw === 'rft' || raw === 'testing') return 'Ready for Retest';
+  if(raw.includes('progres') || raw.includes('progress') || raw === 'wip' || raw === 'doing' || raw === 'development' || raw === 'inprogress') return 'In Progress';
+  if(raw === 'assigned' || raw === 'approved' || raw === 'committed' || raw === 'triage') return 'Assigned';
+  if(raw === 'open' || raw === 'active') return 'Open';
+
+  return String(s).trim().charAt(0).toUpperCase() + String(s).trim().slice(1);
 }
 
 // ================================================================
@@ -857,22 +881,90 @@ function processFile(file){
       const wb=XLSX.read(e.target.result,{type:'array',cellDates:true});
       const sn = wb.SheetNames;
 
-      // Smart sheet discovery
-      const findSheet = (patterns) => {
-        for(const p of patterns){
-          const found = sn.find(name => nk(name).includes(nk(p)));
-          if(found) return wb.Sheets[found];
+      tcData = [];
+      defectData = [];
+      mappingData = [];
+
+      let tcSheet = null;
+      let defSheet = null;
+      let mapSheet = null;
+
+      // 1. Explicit sheet name matching
+      for(const name of sn){
+        const ln = nk(name);
+        if(!tcSheet && ['alltc','testcase','tclist','tcs','cases','execution','tests','testcases'].some(k => ln.includes(k))) tcSheet = wb.Sheets[name];
+        if(!defSheet && ['defectlist','defects','bugs','defect','issues','workitems','buglist','defectslist'].some(k => ln.includes(k))) defSheet = wb.Sheets[name];
+        if(!mapSheet && ['defectvstc','mapping','defectmapping','tcvsdefect','traceability','linkage'].some(k => ln.includes(k))) mapSheet = wb.Sheets[name];
+      }
+
+      // 2. Header-based inspection for general or single-sheet workbooks
+      if(!tcSheet && !defSheet){
+        for(const name of sn){
+          const sh = wb.Sheets[name];
+          if(!sh) continue;
+          const rows = XLSX.utils.sheet_to_json(sh, { header: 1, range: 0, defval: '' });
+          if(!rows || rows.length === 0) continue;
+          const headers = (rows[0] || []).map(h => nk(h));
+
+          const defectHeaderMatches = headers.filter(h =>
+            ['workitemtype','typeofbug','bugtype','defecttype','defectid','defid','bugid','severity','rootcause','rca','workstream','tcodeorfioriappid','tcode','fioriapp','changeddate','createddate','state','assignedto'].some(k => h.includes(k))
+          ).length;
+
+          const tcHeaderMatches = headers.filter(h =>
+            ['tcid','testcaseid','testcasename','executionstatus','runstatus','step','expectedresult','actualresult','passrate','tcname'].some(k => h.includes(k))
+          ).length;
+
+          if(defectHeaderMatches > tcHeaderMatches && !defSheet){
+            defSheet = sh;
+          } else if(tcHeaderMatches > defectHeaderMatches && !tcSheet){
+            tcSheet = sh;
+          }
         }
-        return null;
-      };
+      }
 
-      const tcSheet = findSheet(['all tc', 'test case', 'tc list', 'tcs', 'cases', 'execution']) || (sn.length > 0 ? wb.Sheets[sn[0]] : null);
-      const defSheet = findSheet(['defect list', 'defects', 'bugs', 'defect', 'issues']) || (sn.length > 1 ? wb.Sheets[sn[1]] : null);
-      const mapSheet = findSheet(['defect vs tc', 'mapping', 'defect mapping', 'tc vs defect', 'traceability']) || (sn.length > 2 ? wb.Sheets[sn[2]] : null);
+      // 3. Fallback to default sheet 0 if not yet identified
+      if(!tcSheet && !defSheet && sn.length > 0){
+        const sh0 = wb.Sheets[sn[0]];
+        const rows0 = XLSX.utils.sheet_to_json(sh0, { header: 1, range: 0, defval: '' });
+        const headers0 = (rows0[0] || []).map(h => nk(h));
+        const isDefect = headers0.some(h => ['workitemtype','severity','typeofbug','bug','defect','workstream','tcode','fioriapp','state','assignedto','changeddate','createddate','title'].some(k => h.includes(k)));
+        if(isDefect){
+          defSheet = sh0;
+        } else {
+          tcSheet = sh0;
+        }
+      }
 
-      tcData = tcSheet ? (XLSX.utils.sheet_to_json(tcSheet,{defval:''})).map(normalizeTC).filter(r=>r.id||r.name) : [];
-      defectData = defSheet ? (XLSX.utils.sheet_to_json(defSheet,{defval:''})).map(r=>{ const d=normalizeDefect(r); d.status=defStatusNorm(d.status); return d; }).filter(r=>r.id||r.description) : [];
-      mappingData = mapSheet ? (XLSX.utils.sheet_to_json(mapSheet,{defval:''})).map(normalizeMapping).filter(r=>r.defectId||r.tcId) : [];
+      // 4. Ingest Defect records
+      if(defSheet){
+        const rawDefRows = XLSX.utils.sheet_to_json(defSheet, { defval: '' });
+        defectData = rawDefRows.map((r, i) => {
+          const d = normalizeDefect(r, i);
+          d.status = defStatusNorm(d.status);
+          return d;
+        }).filter(r => r.id || r.description);
+      }
+
+      // 5. Ingest TC records
+      if(tcSheet){
+        const rawTcRows = XLSX.utils.sheet_to_json(tcSheet, { defval: '' });
+        tcData = rawTcRows.map(normalizeTC).filter(r => r.id || r.name);
+      }
+
+      // 6. Ingest Mapping records
+      if(mapSheet){
+        const rawMapRows = XLSX.utils.sheet_to_json(mapSheet, { defval: '' });
+        mappingData = rawMapRows.map(normalizeMapping).filter(r => r.defectId || r.tcId);
+      }
+
+      // 7. Auto-bridge: if defect sheet provided without explicit TCs, synthesize linked test cases
+      if(defectData.length > 0 && tcData.length === 0){
+        tcData = generateTCsFromDefects(defectData);
+        mappingData = generateMappingsFromDefects(defectData, tcData);
+      } else if(tcData.length > 0 && defectData.length === 0){
+        defectData = generateDefectsFromTCs(tcData);
+        mappingData = generateMappingsFromDefects(defectData, tcData);
+      }
 
       if(!tcData.length && !defectData.length){
         throw new Error('No valid test case or defect records found in the uploaded workbook.');
@@ -994,22 +1086,49 @@ function parseOcrTableText(text){
 }
 
 function generateTCsFromDefects(defs){
-  const modules = ['Login', 'Dashboard', 'Payments', 'Reports', 'User Mgmt', 'Cart', 'API'];
   const tcs = [];
   defs.forEach((d, i) => {
+    const mod = d.team || 'Core Module';
+    const isClosed = d.status === 'Closed';
+    const isRetest = d.status === 'Ready for Retest';
+    const isP1 = priNorm(d.priority) === 'P1';
+    const st = isClosed ? 'Pass' : (isRetest ? 'Pass' : (isP1 ? 'Blocked' : 'Fail'));
+    const tcid = 'TC-' + String(d.id || (i + 1)).replace(/^DEF-|^BUG-|^#/i, '').padStart(4, '0');
     tcs.push({
-      id: 'TC-' + String(i + 1).padStart(4, '0'),
-      name: `${d.description.slice(0, 35)} - Test Case`,
-      module: modules[i % modules.length],
-      priority: d.priority,
-      status: d.status === 'Closed' ? 'Pass' : 'Fail',
-      execBy: d.raisedBy || 'Tester',
-      execDate: d.raisedOn || new Date().toISOString().slice(0,10),
-      defectId: d.id,
-      comments: 'Derived from defect table'
+      id: tcid,
+      name: `Verify ${d.description ? d.description.slice(0, 50) : 'Test Scenario #' + (i + 1)}`,
+      module: mod,
+      priority: d.priority || 'P2',
+      status: st,
+      execBy: d.raisedBy || d.assignedTo || 'QA Tester',
+      execDate: d.raisedOn || new Date().toISOString().slice(0, 10),
+      defectId: d.id || ('DEF-' + String(i + 1).padStart(3, '0')),
+      comments: `Derived from defect ${d.id || ('#' + (i + 1))} [${d.status}]`
     });
   });
   return tcs;
+}
+
+function generateDefectsFromTCs(tcs){
+  const defs = [];
+  tcs.filter(t => t.status === 'Fail' || t.status === 'Blocked').forEach((t, i) => {
+    defs.push({
+      id: t.defectId || ('DEF-' + String(i + 1).padStart(3, '0')),
+      description: `Execution failure in ${t.name || t.id}`,
+      priority: t.priority || 'P2',
+      status: 'Open',
+      raisedBy: t.execBy || 'QA Tester',
+      assignedTo: 'Lead Developer',
+      team: t.module || 'Core Squad',
+      raisedOn: t.execDate || new Date().toISOString().slice(0, 10),
+      eta: '',
+      closedOn: '',
+      rootCause: 'Functional Error',
+      comments: `Auto-derived from test failure ${t.id}`,
+      linkedTC: t.id
+    });
+  });
+  return defs;
 }
 
 function generateMappingsFromDefects(defs, tcs){

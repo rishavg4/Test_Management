@@ -508,53 +508,91 @@ function g(n,...keys){ for(const k of keys){ if(n[k]!=null && n[k]!=='') return 
 function extractYMD(v){
   if(!v) return '';
   if(v instanceof Date){
+    if(isNaN(v.getTime())) return '';
     return v.getUTCFullYear()+'-'+String(v.getUTCMonth()+1).padStart(2,'0')+'-'+String(v.getUTCDate()).padStart(2,'0');
   }
+  if(typeof v === 'number' && v > 10000 && v < 80000){
+    const d = new Date(Math.round((v - 25569) * 86400 * 1000));
+    if(!isNaN(d.getTime())) return extractYMD(d);
+  }
   const s=String(v).trim();
-  if(/^\d{4}-\d{2}-\d{2}/.test(s)) return s.slice(0,10);
+  if(!s) return '';
+  const ymd = s.match(/^(\d{4})[-/.](\d{1,2})[-/.](\d{1,2})/);
+  if(ymd) return `${ymd[1]}-${String(ymd[2]).padStart(2,'0')}-${String(ymd[3]).padStart(2,'0')}`;
+  const dmy = s.match(/^(\d{1,2})[-/.](\d{1,2})[-/.](\d{4})/);
+  if(dmy){
+    const d = parseInt(dmy[1], 10), m = parseInt(dmy[2], 10), y = dmy[3];
+    if(d > 12 && m <= 12) return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    if(m > 12 && d <= 12) return `${y}-${String(d).padStart(2,'0')}-${String(m).padStart(2,'0')}`;
+    return `${y}-${String(m).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+  }
   const d=new Date(s);
-  if(!isNaN(d)) return extractYMD(d);
+  if(!isNaN(d.getTime())){
+    return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  }
   return s;
 }
 
-function normalizeDefect(row){
+function priNorm(p){
+  if(p == null) return 'P3';
+  const s = String(p).trim();
+  if(!s) return 'P3';
+
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?1(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(critical|blocker|urgent|showstopper)\b/i.test(s)){
+    return 'P1';
+  }
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?2(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(high|major)\b/i.test(s)){
+    return 'P2';
+  }
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?3(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(medium|med|normal|moderate)\b/i.test(s)){
+    return 'P3';
+  }
+  if(/^(?:p-?|severity\s*|sev\s*|priority\s*)?4(?:\s*[-:.]\s*|\b)/i.test(s) || /\b(low|minor|trivial|cosmetic)\b/i.test(s)){
+    return 'P4';
+  }
+
+  const upper = s.toUpperCase();
+  if(/\bP1\b/i.test(upper)) return 'P1';
+  if(/\bP2\b/i.test(upper)) return 'P2';
+  if(/\bP3\b/i.test(upper)) return 'P3';
+  if(/\bP4\b/i.test(upper)) return 'P4';
+  return 'P3';
+}
+
+function defStatusNorm(s){
+  if(s == null) return 'Open';
+  const raw = String(s).trim().toLowerCase().replace(/[\s_\-]/g,'');
+  if(!raw) return 'Open';
+
+  if(raw === 'new' || raw === 'submitted' || raw === 'proposed' || raw === 'draft') return 'New';
+  if(raw === 'closed' || raw === 'close' || raw === 'done' || raw === 'completed' || raw === 'resolved' || raw === 'fixed' || raw === 'cancelled' || raw === 'rejected') return 'Closed';
+  if(raw === 'reopen' || raw === 'reopened' || raw === 're-opened') return 'Reopen';
+  if(raw.includes('retest') || raw.includes('ready') || raw === 'rft' || raw === 'testing') return 'Ready for Retest';
+  if(raw.includes('progres') || raw.includes('progress') || raw === 'wip' || raw === 'doing' || raw === 'development' || raw === 'inprogress') return 'In Progress';
+  if(raw === 'assigned' || raw === 'approved' || raw === 'committed' || raw === 'triage') return 'Assigned';
+  if(raw === 'open' || raw === 'active') return 'Open';
+
+  return String(s).trim().charAt(0).toUpperCase() + String(s).trim().slice(1);
+}
+
+function normalizeDefect(row, idx){
   const n={};
   Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
+  const rowId = g(n,'id','defectid','defid','bugid','workitemid','issueid','key','itemid','number','no') || ('BUG-' + String((idx||0)+1).padStart(3,'0'));
   return {
-    id:          g(n,'defectid','defid','bugid','id'),
-    description: g(n,'description','desc','title','summary'),
-    priority:    normalizePriority(g(n,'priority','prio','p','sev','severity')),
-    status:      normalizeStatus(g(n,'status','state')),
-    raisedBy:    g(n,'raisedby','reportedby','createdby','raiser'),
-    assignedTo:  g(n,'assiedto','assignedto','owner','developer','assignee'),
-    team:        g(n,'assignedteam','team','squad','group'),
-    raisedOn:    extractYMD(g(n,'raisedon','reportedon','createdon','date')),
-    eta:         extractYMD(g(n,'eta','duedate','targetdate')),
-    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon')),
-    rootCause:   g(n,'rootcause','rca','cause','rc'),
-    comments:    g(n,'comments','comment','notes','remarks'),
+    id:          rowId,
+    description: g(n,'title','description','desc','summary','name','defectname','issuename','workitemtitle','subject','details'),
+    priority:    priNorm(g(n,'severity','priority','prio','p','sev','defectpriority','defectseverity','severitylevel','prioritylevel','impact','criticality','severitycode','sevlevel','pri','importance')),
+    status:      defStatusNorm(g(n,'state','status','defectstatus','issuestatus','currentstatus','workflowstate','workitemstate','stage')),
+    raisedBy:    g(n,'createdby','raisedby','reportedby','author','raiser','reporter','loggedby','creator','originator','workstreamcreatedby'),
+    assignedTo:  g(n,'assignedto','assiedto','owner','developer','assignee','assigned','assignto','dev','assignedresource','changedby','modifiedby'),
+    team:        g(n,'workstream','workstreamcreatedby','assignedteam','team','squad','group','assignedsquad','assignedgroup','component','module','stream','track','tcodeorfioriappid','fioriappid','tcode','scope','area','areapath') || 'Core Team',
+    raisedOn:    extractYMD(g(n,'createddate','raisedon','reportedon','createdon','date','raiseddate','reportdate','creationdate','loggeddate')),
+    eta:         extractYMD(g(n,'eta','duedate','targetdate','targetresolutiondate','resolutioneta','fixdate')),
+    closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon','resolutiondate','actualfixdate','completedon','changeddate','modifieddate','updateddate')),
+    rootCause:   g(n,'typeofbug','bugtype','defecttype','rootcause','rca','cause','rc','rootcausecategory','defectcategory','category','classification','scope','tags','tag') || 'Functional Error',
+    comments:    g(n,'comments','comment','notes','remarks','triagenotes','triagecomments','resolutionnotes','tags','scope','tcodeorfioriappid','fioriappid','workitemtype'),
   };
-}
-
-function normalizePriority(p){
-  const s = String(p||'').trim().toUpperCase();
-  if(/^P1/.test(s)||s==='CRITICAL') return 'P1';
-  if(/^P2/.test(s)||s==='HIGH') return 'P2';
-  if(/^P3/.test(s)||s==='MEDIUM') return 'P3';
-  if(/^P4/.test(s)||s==='LOW') return 'P4';
-  return p||'P3';
-}
-
-function normalizeStatus(s){
-  const v = String(s||'').trim().toLowerCase();
-  if(v==='new') return 'New';
-  if(v==='open') return 'Open';
-  if(v.includes('progress')||v==='inprogress'||v==='wip') return 'In Progress';
-  if(v.includes('retest')||v.includes('ready')) return 'Ready for Retest';
-  if(v==='closed'||v==='done'||v==='fixed'||v==='resolved') return 'Closed';
-  if(v==='reopen'||v==='reopened') return 'Reopen';
-  if(v==='assigned') return 'Assigned';
-  return s||'Open';
 }
 
 // ════════════════════════════════════════════════════
@@ -562,7 +600,8 @@ function normalizeStatus(s){
 // ════════════════════════════════════════════════════
 function handleDrop(e){
   e.preventDefault();
-  document.getElementById('drop-area').classList.remove('drag-over');
+  const dropArea = document.querySelector('.upload-card') || document.getElementById('drop-area');
+  if(dropArea) dropArea.classList.remove('drag-over');
   const f = e.dataTransfer.files[0];
   if(f) handleFile(f);
 }
@@ -574,11 +613,24 @@ function handleFile(file){
   reader.onload = function(e){
     try{
       const wb = XLSX.read(e.target.result,{type:'array',cellDates:true});
-      let sheet = wb.Sheets[wb.SheetNames[0]];
-      const named = wb.SheetNames.find(n=>n.toLowerCase().includes('defect'));
+      const sn = wb.SheetNames;
+      let sheet = null;
+
+      // 1. Explicit sheet name matching
+      const named = sn.find(n => ['defect','bug','issue','workitem'].some(k => nk(n).includes(k)));
       if(named) sheet = wb.Sheets[named];
+
+      // 2. Default to sheet 0 or header-inspected sheet
+      if(!sheet && sn.length > 0) sheet = wb.Sheets[sn[0]];
+
       const rows = XLSX.utils.sheet_to_json(sheet,{defval:''});
-      defectData = rows.map(normalizeDefect).filter(d=>d.id||d.description);
+      defectData = rows.map((r, i) => normalizeDefect(r, i)).filter(d => d.id || d.description);
+
+      if(!defectData.length){
+        throw new Error('No valid defect records identified. Please verify the Excel columns.');
+      }
+
+      document.getElementById('m-proj').value = file.name.replace(/\.[^/.]+$/, '');
       initDashboard();
     } catch(err){
       alert('Failed to parse file: '+err.message);
