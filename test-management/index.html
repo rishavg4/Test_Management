@@ -621,9 +621,22 @@ const PALETTE = [
 /** Normalise a column key: lowercase, strip spaces/dashes/underscores */
 function nk(k){ return String(k).toLowerCase().replace(/[\s_\-]/g,''); }
 
-/** Return first non-empty value from normalised map */
+/** Intelligent column value extractor: checks exact matches, then fuzzy/substring matches */
 function g(n,...keys){
-  for(const k of keys){ if(n[k]!=null && n[k]!=='') return n[k]; }
+  if(!n) return '';
+  // 1. Exact match in n
+  for(const k of keys){
+    const cleanK = nk(k);
+    if(n[cleanK] != null && String(n[cleanK]).trim() !== '') return n[cleanK];
+  }
+  // 2. Substring & fuzzy matching across all available keys in row
+  const availableKeys = Object.keys(n);
+  for(const k of keys){
+    const cleanK = nk(k);
+    if(!cleanK || cleanK.length < 3) continue;
+    const matched = availableKeys.find(ak => ak === cleanK || ak.includes(cleanK) || (cleanK.length > 5 && cleanK.includes(ak)));
+    if(matched && n[matched] != null && String(n[matched]).trim() !== '') return n[matched];
+  }
   return '';
 }
 
@@ -712,25 +725,51 @@ function normalizeTC(row){
   };
 }
 
-/** Normalise Defect row — comprehensive mapping for Azure DevOps, SAP, Jira, ALM, ServiceNow */
+/** Normalise Defect row — adaptive header intelligence for Azure DevOps, SAP, Jira, ALM, ServiceNow */
 function normalizeDefect(row, idx){
   const n={};
   Object.keys(row).forEach(k=>{ n[nk(k)]=row[k]; });
   const rowId = g(n,'id','defectid','defid','bugid','workitemid','issueid','key','itemid','number','no') || ('BUG-' + String((idx||0)+1).padStart(3,'0'));
+
+  // Title / Defect Description
+  const desc = g(n,'title','defectdescription','description','desc','summary','bugdescription','name','defectname','issuename','workitemtitle','subject','details') || ('Defect #' + rowId);
+
+  // Priority / Severity (with smart context inference if Severity column is missing)
+  let rawPri = g(n,'severity','priority','prio','p','sev','defectpriority','defectseverity','severitylevel','prioritylevel','impact','criticality','severitycode','sevlevel','pri','importance');
+  if(!rawPri){
+    const context = (g(n,'typeofbug','tags','title','description','comments','environmentbugdetectedin') || '').toLowerCase();
+    if(context.includes('critical') || context.includes('blocker') || context.includes('p1') || context.includes('showstopper') || context.includes('crash')) rawPri = 'P1';
+    else if(context.includes('high') || context.includes('major') || context.includes('p2') || context.includes('data loss')) rawPri = 'P2';
+    else if(context.includes('low') || context.includes('minor') || context.includes('p4') || context.includes('cosmetic') || context.includes('typo')) rawPri = 'P4';
+    else rawPri = 'P3';
+  }
+
+  // Workstream / Team (Prioritizes Workstream to Resolve, then Workstream, then Workstream Created By)
+  const team = g(n,'workstreamtoresolve','workstream','workstreamcreatedby','assignedteam','team','squad','group','assignedsquad','assignedgroup','component','module','stream','track','iterationpath','iteration','tcodeorfioriappid','fioriappid','tcode','scope','area','areapath') || 'Core Team';
+
+  // Root Cause / Type of Bug / Environment
+  const rootCause = g(n,'typeofbug','bugtype','defecttype','rootcause','rca','cause','rc','rootcausecategory','defectcategory','category','classification','environmentbugdetectedin','environment','env','scope','tags','tag') || 'Functional Error';
+
+  // Comments / Notes / Tags
+  const comments = g(n,'comments','comment','notes','remarks','triagenotes','triagecomments','resolutionnotes','tags','environmentbugdetectedin','iterationpath','scope','tcodeorfioriappid','fioriappid','workitemtype');
+
+  // Linked TC
+  const linkedTC = g(n,'linkedtc','linkedtcs','linkedtestcases','testcaseid','tcid','tc','linkedtestcase','testcases','iterationpath','tcodeorfioriappid');
+
   return {
     id:          rowId,
-    description: g(n,'title','description','desc','summary','name','defectname','issuename','workitemtitle','subject','details'),
-    priority:    priNorm(g(n,'severity','priority','prio','p','sev','defectpriority','defectseverity','severitylevel','prioritylevel','impact','criticality','severitycode','sevlevel','pri','importance')),
+    description: desc,
+    priority:    priNorm(rawPri),
     status:      defStatusNorm(g(n,'state','status','defectstatus','issuestatus','currentstatus','workflowstate','workitemstate','stage')),
     raisedBy:    g(n,'createdby','raisedby','reportedby','author','raiser','reporter','loggedby','creator','originator','workstreamcreatedby'),
     assignedTo:  g(n,'assignedto','assiedto','owner','developer','assignee','assigned','assignto','dev','assignedresource','changedby','modifiedby'),
-    team:        g(n,'workstream','workstreamcreatedby','assignedteam','team','squad','group','assignedsquad','assignedgroup','component','module','stream','track','tcodeorfioriappid','fioriappid','tcode','scope','area','areapath') || 'Core Team',
+    team:        team,
     raisedOn:    extractYMD(g(n,'createddate','raisedon','reportedon','createdon','date','raiseddate','reportdate','creationdate','loggeddate')),
     eta:         extractYMD(g(n,'eta','duedate','targetdate','targetresolutiondate','resolutioneta','fixdate')),
     closedOn:    extractYMD(g(n,'closedon','closeddate','resolvedon','resolutiondate','actualfixdate','completedon','changeddate','modifieddate','updateddate')),
-    rootCause:   g(n,'typeofbug','bugtype','defecttype','rootcause','rca','cause','rc','rootcausecategory','defectcategory','category','classification','scope','tags','tag') || 'Functional Error',
-    comments:    g(n,'comments','comment','notes','remarks','triagenotes','triagecomments','resolutionnotes','tags','scope','tcodeorfioriappid','fioriappid','workitemtype'),
-    linkedTC:    g(n,'linkedtc','linkedtcs','linkedtestcases','testcaseid','tcid','tc','linkedtestcase','testcases','tcodeorfioriappid'),
+    rootCause:   rootCause,
+    comments:    comments,
+    linkedTC:    linkedTC,
   };
 }
 
