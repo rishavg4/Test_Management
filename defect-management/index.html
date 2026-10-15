@@ -288,9 +288,9 @@ html,body{height:100%;overflow:hidden;font-family:system-ui,-apple-system,'Segoe
              ondrop="handleDrop(event)">
           <div>
             <div class="upload-icon">📂</div>
-            <h2>Upload Defect Excel</h2>
-            <p>Drag &amp; drop your <strong>.xlsx</strong> file or click to browse.<br/>Supports Defect ID, Priority, Status, Team, RCA…</p>
-            <input type="file" id="file-input" accept=".xlsx,.xls" onchange="handleFile(this.files[0])"/>
+            <h2>Upload Defect Excel / CSV</h2>
+            <p>Drag &amp; drop your <strong>.xlsx / .csv</strong> file or click to browse.<br/>Supports Azure DevOps, SAP, Jira, &amp; custom headers!</p>
+            <input type="file" id="file-input" accept=".xlsx,.xls,.csv" onchange="handleFile(this.files[0])"/>
           </div>
           <div style="margin-top:14px;">
             <button class="btn btn-primary" onclick="event.stopPropagation();document.getElementById('file-input').click()">📁 Browse File</button>
@@ -797,9 +797,75 @@ async function processRemoteUrl(){
     alert('Please enter a valid Box or SharePoint URL.');
     return;
   }
-  loadSampleData();
-  document.getElementById('m-proj').value = 'Cloud Sync: ' + u.split('/').pop().replace(/\.[^/.]+$/, '');
-  applyMeta();
+
+  const cleanName = u.split('/').pop().replace(/\.[^/.]+$/, '') || 'cloud report';
+
+  try{
+    let fetchUrl = u;
+    if(u.includes('ibm.box.com/s/')){
+      fetchUrl = u.replace('ibm.box.com/s/', 'ibm.box.com/shared/static/') + '.xlsx';
+    } else if(u.includes('sharepoint.com') && !u.includes('download=1') && !u.includes('/my?id=')){
+      fetchUrl = u + (u.includes('?') ? '&download=1' : '?download=1');
+    }
+
+    if(!u.includes('/my?id=') && !u.includes('box.com/folder/')){
+      const resp = await fetch(fetchUrl, { mode: 'cors' });
+      if(resp.ok){
+        const contentType = resp.headers.get('content-type') || '';
+        if(!contentType.includes('text/html')){
+          const blob = await resp.blob();
+          if(blob && blob.size > 150){
+            const ext = cleanName.toLowerCase().endsWith('.csv') ? '.csv' : '.xlsx';
+            const fileObj = new File([blob], cleanName + ext, { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+            handleFile(fileObj);
+            return;
+          }
+        }
+      }
+    }
+  }catch(fetchErr){
+    console.warn('Direct remote fetch blocked by corporate SSO/CORS:', fetchErr);
+  }
+
+  // Never load dummy sample data silently. Provide clear diagnostic and direct file upload option.
+  showCloudAuthHelp(cleanName, u);
+}
+
+function showCloudAuthHelp(fileName, url){
+  const existing = document.getElementById('cloud-auth-modal');
+  if(existing) existing.remove();
+
+  const cleanName = fileName || 'your defect file';
+  const isSharePoint = url.includes('sharepoint.com');
+  const isBox = url.includes('box.com');
+  const serviceName = isSharePoint ? 'SharePoint / OneDrive' : (isBox ? 'IBM Box' : 'Enterprise Cloud');
+
+  const modalHtml = `
+    <div id="cloud-auth-modal" style="position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+      <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:28px 24px;box-shadow:0 20px 40px rgba(0,0,0,0.25);border:1px solid #e2e8f0;text-align:left;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="font-size:30px;">🔒</div>
+          <div>
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;">${serviceName} Authentication Required</h3>
+            <div style="font-size:12.5px;color:#64748b;margin-top:2px;">Target File: <b>${cleanName}</b></div>
+          </div>
+        </div>
+        <p style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:14px;">
+          Due to Microsoft &amp; corporate SSO security restrictions, web browsers block direct cross-origin access (CORS) to authenticated <b>${serviceName}</b> files without an active delegated session token.
+        </p>
+        <div style="background:#f8fafc;border-left:4px solid #0284c7;padding:12px 14px;border-radius:6px;font-size:12.5px;color:#1e293b;margin-bottom:18px;line-height:1.5;">
+          <b>How to load your exact defect data:</b><br/>
+          1. Download <b>${cleanName}</b> from ${serviceName} to your computer.<br/>
+          2. Click the button below to upload the downloaded file (supports <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code>).
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('cloud-auth-modal').remove()" style="padding:8px 16px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px;font-weight:600;cursor:pointer;font-size:12.5px;">Close</button>
+          <button onclick="document.getElementById('cloud-auth-modal').remove();document.getElementById('file-input').click();" style="padding:8px 20px;background:#0284c7;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px;">📁 Browse &amp; Upload Downloaded File</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 async function fetchFromApiConnector(){

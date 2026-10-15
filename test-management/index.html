@@ -412,10 +412,10 @@ tbody td{padding:8px 12px;max-width:240px;overflow:hidden;text-overflow:ellipsis
             <div class="upload-icon">📂</div>
             <div class="upload-title">Upload Excel Report or Screenshot</div>
             <div class="upload-desc">
-              Drag &amp; drop your <strong>.xlsx</strong> file or <strong>Screenshot image (.png, .jpg)</strong> here, or click to browse.<br/>
-              Supports multi-sheet test workbooks and direct table screenshots!
+              Drag &amp; drop your <strong>.xlsx / .csv</strong> file or <strong>Screenshot image</strong> here, or click to browse.<br/>
+              Supports multi-sheet workbooks, custom Azure DevOps/SAP defect exports, and CSVs!
             </div>
-            <input type="file" id="file-input" accept=".xlsx,.xls,.png,.jpg,.jpeg,.webp"/>
+            <input type="file" id="file-input" accept=".xlsx,.xls,.csv,.png,.jpg,.jpeg,.webp"/>
           </div>
           <div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
             <button class="upload-btn" onclick="event.stopPropagation();loadSampleData()">🎲 Sample Data</button>
@@ -1690,91 +1690,81 @@ async function processRemoteUrl(){
   const progText = overlay.querySelector('.prog-text');
   const progSub = overlay.querySelector('.prog-sub');
   progText.textContent = 'Connecting to Remote Data Source…';
-  progSub.textContent = 'Processing remote link and workbook structures…';
+  progSub.textContent = 'Checking authenticated cloud access and CORS permissions…';
   overlay.classList.add('show');
 
   const inferredName = extractProjectNameFromUrl(u);
 
   try{
-    let loadedData = false;
+    let fetchUrl = u;
+    if(u.includes('ibm.box.com/s/')){
+      fetchUrl = u.replace('ibm.box.com/s/', 'ibm.box.com/shared/static/') + '.xlsx';
+    } else if(u.includes('sharepoint.com') && !u.includes('download=1') && !u.includes('/my?id=')){
+      fetchUrl = u + (u.includes('?') ? '&download=1' : '?download=1');
+    }
 
-    // 1. Direct fetch if accessible
-    try{
-      let fetchUrl = u;
-      if(u.includes('ibm.box.com/s/')){
-        fetchUrl = u.replace('ibm.box.com/s/', 'ibm.box.com/shared/static/') + '.xlsx';
-      } else if(u.includes('sharepoint.com') && !u.includes('download=1') && !u.includes('/my?id=')){
-        fetchUrl = u + (u.includes('?') ? '&download=1' : '?download=1');
-      }
-
-      if(!u.includes('/my?id=') && !u.includes('box.com/folder/')){
-        const resp = await fetch(fetchUrl, { mode: 'cors' });
-        if(resp.ok){
+    if(!u.includes('/my?id=') && !u.includes('box.com/folder/')){
+      const resp = await fetch(fetchUrl, { mode: 'cors' });
+      if(resp.ok){
+        const contentType = resp.headers.get('content-type') || '';
+        // If server returns HTML (e.g. SSO Login redirect), do not treat as binary file
+        if(!contentType.includes('text/html')){
           const blob = await resp.blob();
-          if(blob && blob.size > 0){
-            const fileObj = new File([blob], inferredName + '.xlsx', { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+          if(blob && blob.size > 150){
+            const ext = inferredName.toLowerCase().endsWith('.csv') ? '.csv' : (inferredName.toLowerCase().endsWith('.xlsx') ? '.xlsx' : '.xlsx');
+            const fileObj = new File([blob], inferredName + ext, { type: blob.type || 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
             overlay.classList.remove('show');
             processFile(fileObj);
             return;
           }
         }
       }
-    }catch(fetchErr){
-      console.warn('Direct remote fetch skipped or blocked by browser CORS:', fetchErr);
     }
-
-    // 2. Load the project's authentic Excel workbook HUB_Test_Data.xlsx directly
-    try{
-      const localResp = await fetch('./HUB_Test_Data.xlsx');
-      if(localResp.ok){
-        const buf = await localResp.arrayBuffer();
-        if(buf && buf.byteLength > 0){
-          const wb = XLSX.read(buf, { type: 'array', cellDates: true });
-          const sn = wb.SheetNames;
-          const findSheet = names => {
-            for(const n of names){
-              const s = sn.find(x => x.toLowerCase().trim() === n.toLowerCase().trim());
-              if(s) return wb.Sheets[s];
-            }
-            return null;
-          };
-          const tcSheet = findSheet(['all tc', 'all test cases', 'test cases', 'tcs', 'tests', 'testcases']) || wb.Sheets[sn[0]];
-          const defSheet = findSheet(['defect list', 'defects', 'bugs', 'defect', 'issues']) || (sn.length > 1 ? wb.Sheets[sn[1]] : null);
-          const mapSheet = findSheet(['defect vs tc', 'mapping', 'defect mapping', 'tc vs defect', 'traceability']) || (sn.length > 2 ? wb.Sheets[sn[2]] : null);
-
-          tcData = tcSheet ? (XLSX.utils.sheet_to_json(tcSheet, { defval: '' })).map(normalizeTC).filter(r => r.id || r.name) : [];
-          defectData = defSheet ? (XLSX.utils.sheet_to_json(defSheet, { defval: '' })).map(r => { const d = normalizeDefect(r); d.status = defStatusNorm(d.status); return d; }).filter(r => r.id || r.description) : [];
-          mappingData = mapSheet ? (XLSX.utils.sheet_to_json(mapSheet, { defval: '' })).map(normalizeMapping).filter(r => r.defectId || r.tcId) : [];
-
-          if(tcData.length > 0 || defectData.length > 0){
-            loadedData = true;
-          }
-        }
-      }
-    }catch(localErr){
-      console.warn('Local workbook fetch error:', localErr);
-    }
-
-    // 3. Fallback to rich comprehensive dataset generator
-    if(!loadedData){
-      loadSampleData();
-    }
-
-    // Configure project metadata and activate dashboard
-    rptMeta.project = inferredName;
-    rptMeta.reportType = 'Test Management Report';
-    document.getElementById('rh-project').value = inferredName;
-    document.getElementById('nav-project-title').textContent = '🏦 ' + inferredName.toUpperCase();
-    document.getElementById('hdr-title').textContent = inferredName;
-    onDataLoaded(inferredName);
-    document.getElementById('hdr-sub').textContent = `Data Source: ${u.length > 60 ? u.slice(0, 60) + '…' : u} · ${tcData.length} TCs · ${defectData.length} Defects`;
-
-    overlay.classList.remove('show');
-    addChatMsg(`🔗 Successfully connected to remote data source: <b>${inferredName}</b>.<br/>Loaded <b>${tcData.length} Test Cases</b>, <b>${defectData.length} Defects</b>, and <b>${mappingData.length} Traceability Mappings</b>. All KPI metrics, trend charts, and discrepancy audits are fully active!`, 'bot');
-  }catch(err){
-    overlay.classList.remove('show');
-    alert('Error processing URL: ' + err.message);
+  }catch(fetchErr){
+    console.warn('Direct remote fetch blocked by corporate SSO/CORS:', fetchErr);
   }
+
+  // Direct client-side browser fetch could not retrieve authenticated file.
+  // NEVER show dummy/sample data! Show explicit diagnostic and one-click file upload helper.
+  overlay.classList.remove('show');
+  showCloudAuthHelp(inferredName, u);
+}
+
+function showCloudAuthHelp(fileName, url){
+  const existing = document.getElementById('cloud-auth-modal');
+  if(existing) existing.remove();
+
+  const cleanName = fileName || 'your report file';
+  const isSharePoint = url.includes('sharepoint.com');
+  const isBox = url.includes('box.com');
+  const serviceName = isSharePoint ? 'SharePoint / OneDrive' : (isBox ? 'IBM Box' : 'Enterprise Cloud');
+
+  const modalHtml = `
+    <div id="cloud-auth-modal" style="position:fixed;inset:0;background:rgba(15,23,42,0.65);z-index:99999;display:flex;align-items:center;justify-content:center;padding:20px;backdrop-filter:blur(3px);">
+      <div style="background:#fff;border-radius:14px;max-width:560px;width:100%;padding:28px 24px;box-shadow:0 20px 40px rgba(0,0,0,0.25);border:1px solid #e2e8f0;text-align:left;">
+        <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
+          <div style="font-size:30px;">🔒</div>
+          <div>
+            <h3 style="margin:0;font-size:16px;font-weight:800;color:#0f172a;">${serviceName} Authentication Required</h3>
+            <div style="font-size:12.5px;color:#64748b;margin-top:2px;">File: <b>${cleanName}</b></div>
+          </div>
+        </div>
+        <p style="font-size:13px;color:#334155;line-height:1.6;margin-bottom:14px;">
+          Due to Microsoft &amp; corporate SSO security restrictions, web browsers block direct cross-origin access (CORS) to authenticated <b>${serviceName}</b> files without an active delegated session token.
+        </p>
+        <div style="background:#f8fafc;border-left:4px solid #0f766e;padding:12px 14px;border-radius:6px;font-size:12.5px;color:#1e293b;margin-bottom:18px;line-height:1.5;">
+          <b>How to load your exact report data:</b><br/>
+          1. Download <b>${cleanName}</b> from ${serviceName} to your computer.<br/>
+          2. Click the button below to upload the downloaded file (supports <code>.xlsx</code>, <code>.xls</code>, <code>.csv</code>).
+        </div>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+          <button onclick="document.getElementById('cloud-auth-modal').remove()" style="padding:8px 16px;background:#f1f5f9;color:#475569;border:1px solid #cbd5e1;border-radius:8px;font-weight:600;cursor:pointer;font-size:12.5px;">Close</button>
+          <button onclick="document.getElementById('cloud-auth-modal').remove();document.getElementById('file-input').click();" style="padding:8px 20px;background:#0f766e;color:#fff;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:12.5px;">📁 Browse &amp; Upload Downloaded File</button>
+        </div>
+      </div>
+    </div>
+  `;
+  document.body.insertAdjacentHTML('beforeend', modalHtml);
 }
 
 function saveBoxUrl(){
